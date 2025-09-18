@@ -100,7 +100,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             add_action( 'save_post_post', array( $this, 'save_loterie_meta' ), 10, 2 );
 
             // Frontend overlays & shortcodes.
-            add_filter( 'the_content', array( $this, 'inject_loterie_overlay' ) );
+            add_filter( 'post_thumbnail_html', array( $this, 'inject_loterie_overlay' ), 10, 5 );
             add_shortcode( 'lm_loterie', array( $this, 'render_loterie_shortcode' ) );
 
             // Account area.
@@ -539,25 +539,53 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
         }
 
         /**
-         * Injects a loterie overlay on post listings.
+         * Merges the loterie overlay into the post thumbnail HTML when needed.
          *
-         * @param string $content Post content.
+         * @param string $html               Thumbnail HTML.
+         * @param int    $post_id            Post ID.
+         * @param int    $post_thumbnail_id  Attachment ID.
+         * @param string $size               Image size.
+         * @param mixed  $attr               Attributes.
          *
          * @return string
          */
-        public function inject_loterie_overlay( $content ) {
-            if ( is_admin() || ! in_the_loop() || ! is_main_query() ) {
-                return $content;
+        public function inject_loterie_overlay( $html, $post_id, $post_thumbnail_id, $size, $attr ) {
+            if ( is_admin() || is_singular() || ! in_the_loop() || ! is_main_query() ) {
+                return $html;
             }
 
-            $post_id = get_the_ID();
+            if ( empty( $html ) ) {
+                return $html;
+            }
+
+            $post_id = $post_id ? $post_id : get_the_ID();
             if ( ! $post_id ) {
-                return $content;
+                return $html;
             }
 
+            $overlay = $this->get_loterie_overlay_markup( $post_id );
+            if ( '' === $overlay ) {
+                return $html;
+            }
+
+            return sprintf(
+                '<div class="lm-loterie-thumbnail">%1$s%2$s</div>',
+                $html,
+                $overlay
+            );
+        }
+
+        /**
+         * Generates the HTML markup for the loterie overlay.
+         *
+         * @param int $post_id Post ID.
+         *
+         * @return string
+         */
+        private function get_loterie_overlay_markup( $post_id ) {
             $capacity = intval( get_post_meta( $post_id, self::META_TICKET_CAPACITY, true ) );
             if ( $capacity <= 0 ) {
-                return $content;
+                return '';
             }
 
             $sold     = intval( get_post_meta( $post_id, self::META_TICKETS_SOLD, true ) );
@@ -585,9 +613,8 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 </div>
             </div>
             <?php
-            $overlay = ob_get_clean();
 
-            return $overlay . $content;
+            return (string) ob_get_clean();
         }
 
         /**
