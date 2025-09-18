@@ -1,0 +1,133 @@
+.lm-loterie-overlay {
+    position: relative;
+    background: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 6px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+}
+
+.lm-overlay-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    gap: 0.75rem;
+}
+
+.lm-overlay-progress,
+.lm-loterie-summary__progress {
+    position: relative;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 999px;
+    overflow: hidden;
+    height: 10px;
+    margin: 0.5rem 0 1rem;
+}
+
+.lm-overlay-bar,
+.lm-loterie-summary__bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, #ffb347 0%, #ffcc33 100%);
+    transition: width 0.4s ease;
+}
+
+.lm-overlay-stats {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.lm-loterie-summary {
+    border: 1px solid #ececec;
+    padding: 1rem;
+    border-radius: 8px;
+    margin: 1rem 0;
+    background: #fff7e6;
+}
+
+.lm-loterie-summary__title {
+    margin-top: 0;
+}
+
+.lm-loterie-summary__stats {
+    font-weight: 600;
+}
+
+/* Popup styles */
+.lm-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 1.5rem;
+}
+
+.lm-modal {
+    background: #ffffff;
+    border-radius: 8px;
+    max-width: 480px;
+    width: 100%;
+    padding: 1.5rem;
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35);
+}
+
+.lm-modal h2 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+}
+
+.lm-modal-options {
+    max-height: 280px;
+    overflow-y: auto;
+    margin-bottom: 1.5rem;
+}
+
+.lm-modal-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.lm-modal-option:last-child {
+    border-bottom: 0;
+}
+
+.lm-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
+
+.lm-modal-actions .button {
+    padding: 0.5rem 1.25rem;
+    border-radius: 4px;
+}
+
+.lm-ticket-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+}
+
+.lm-ticket-table th,
+.lm-ticket-table td {
+    border: 1px solid #e0e0e0;
+    padding: 0.75rem;
+    text-align: left;
+}
+
+.lm-ticket-table th {
+    background: #fafafa;
+}
