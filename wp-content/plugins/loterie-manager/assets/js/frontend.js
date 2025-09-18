@@ -4,6 +4,42 @@
     var pendingForm = null;
     var bypassModal = false;
 
+    function parseTicketLimit(value) {
+        var limit = parseInt(value, 10);
+        return isNaN(limit) ? 0 : limit;
+    }
+
+    function getTicketLimitMessage(limit) {
+        if (limit <= 0 || !window.LoterieManager || !LoterieManager.i18n) {
+            return '';
+        }
+
+        if (limit === 1 && LoterieManager.i18n.ticket_limit_reached_single) {
+            return LoterieManager.i18n.ticket_limit_reached_single;
+        }
+
+        if (LoterieManager.i18n.ticket_limit_reached_plural) {
+            return LoterieManager.i18n.ticket_limit_reached_plural.replace('%s', limit);
+        }
+
+        return '';
+    }
+
+    function alertTicketLimit(limit) {
+        if (limit <= 0) {
+            return;
+        }
+
+        var message = getTicketLimitMessage(limit);
+        if (!message) {
+            message = limit === 1
+                ? "Vous ne pouvez sélectionner qu'une loterie pour ce produit."
+                : 'Vous ne pouvez sélectionner que ' + limit + ' loteries pour ce produit.';
+        }
+
+        window.alert(message);
+    }
+
     function closeModal() {
         $('.lm-modal-overlay').remove();
         $('body').removeClass('lm-modal-open');
@@ -58,10 +94,11 @@
         return overlay;
     }
 
-    function openModal(lotteries, form) {
+    function openModal(lotteries, form, ticketLimit) {
         pendingForm = form;
         pendingForm.find('.lm-lottery-selection').val('');
         var modal = buildModal(lotteries);
+        modal.find('.lm-lottery-form').attr('data-ticket-limit', ticketLimit > 0 ? ticketLimit : '');
         $('body').append(modal).addClass('lm-modal-open');
         modal.find('input[type="checkbox"]').first().focus();
     }
@@ -86,13 +123,31 @@
         }
 
         event.preventDefault();
-        openModal(lotteries, $form);
+        var ticketLimit = parseTicketLimit(dataContainer.attr('data-ticket-limit'));
+
+        openModal(lotteries, $form, ticketLimit);
         return false;
     });
 
     $(document).on('click', '.lm-modal-cancel', function () {
         closeModal();
         pendingForm = null;
+    });
+
+    $(document).on('change', '.lm-lottery-form input[name="lm_lottery_choice[]"]', function () {
+        var $checkbox = $(this);
+        var $form = $checkbox.closest('.lm-lottery-form');
+        var ticketLimit = parseTicketLimit($form.attr('data-ticket-limit'));
+
+        if (ticketLimit <= 0 || !$checkbox.is(':checked')) {
+            return;
+        }
+
+        var selectedCount = $form.find('input[name="lm_lottery_choice[]"]:checked').length;
+        if (selectedCount > ticketLimit) {
+            $checkbox.prop('checked', false);
+            alertTicketLimit(ticketLimit);
+        }
     });
 
     $(document).on('submit', '.lm-lottery-form', function (event) {
@@ -108,6 +163,12 @@
 
         if (!selected.length) {
             window.alert(LoterieManager.i18n.select_loterie);
+            return;
+        }
+
+        var ticketLimit = parseTicketLimit($(this).attr('data-ticket-limit'));
+        if (ticketLimit > 0 && selected.length > ticketLimit) {
+            alertTicketLimit(ticketLimit);
             return;
         }
 
