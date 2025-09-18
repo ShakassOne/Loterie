@@ -151,6 +151,8 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                         'modal_title'     => __( 'Sélectionnez la loterie pour vos tickets', 'loterie-manager' ),
                         'confirm'         => __( 'Confirmer', 'loterie-manager' ),
                         'cancel'          => __( 'Annuler', 'loterie-manager' ),
+                        'ticket_limit_reached_single' => __( 'Vous ne pouvez sélectionner qu\'une loterie pour ce produit.', 'loterie-manager' ),
+                        'ticket_limit_reached_plural' => __( 'Vous ne pouvez sélectionner que %s loteries pour ce produit.', 'loterie-manager' ),
                     ),
                 )
             );
@@ -264,6 +266,20 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 return false;
             }
 
+            $ticket_limit = intval( get_post_meta( $product_id, self::META_PRODUCT_TICKET_ALLOCATION, true ) );
+
+            if ( $ticket_limit > 0 && count( $selection ) > $ticket_limit ) {
+                if ( function_exists( 'wc_add_notice' ) ) {
+                    $message = ( 1 === $ticket_limit )
+                        ? __( 'Vous ne pouvez sélectionner qu\'une loterie pour ce produit.', 'loterie-manager' )
+                        : sprintf( __( 'Vous ne pouvez sélectionner que %d loteries pour ce produit.', 'loterie-manager' ), $ticket_limit );
+
+                    wc_add_notice( $message, 'error' );
+                }
+
+                return false;
+            }
+
             return $passed;
         }
 
@@ -287,7 +303,9 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 return;
             }
 
-            $data = array();
+            $data              = array();
+            $ticket_limit_raw  = get_post_meta( $product->get_id(), self::META_PRODUCT_TICKET_ALLOCATION, true );
+            $ticket_limit_attr = '' === $ticket_limit_raw ? '' : intval( $ticket_limit_raw );
             foreach ( $loteries as $loterie_id ) {
                 $post = get_post( $loterie_id );
                 if ( ! $post ) {
@@ -309,7 +327,8 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             }
 
             printf(
-                '<div class="lm-lottery-data" data-lotteries="%s"></div>',
+                '<div class="lm-lottery-data" data-ticket-limit="%s" data-lotteries="%s"></div>',
+                esc_attr( $ticket_limit_attr ),
                 esc_attr( wp_json_encode( $data ) )
             );
         }
