@@ -185,4 +185,76 @@
             pendingForm = null;
         }
     });
+
+    function initTiltCards() {
+        var hoverMedia = window.matchMedia ? window.matchMedia('(hover: hover)') : null;
+        if (hoverMedia && !hoverMedia.matches) {
+            return;
+        }
+
+        var cards = document.querySelectorAll('.tilt-card');
+        if (!cards.length) {
+            return;
+        }
+
+        cards.forEach(function (card) {
+            var target = { x: 0, y: 0 };
+            var current = { x: 0, y: 0 };
+            var raf = null;
+
+            function animate() {
+                current.x += (target.x - current.x) * 0.12;
+                current.y += (target.y - current.y) * 0.12;
+
+                card.style.transform = 'perspective(1000px) rotateY(' + current.x.toFixed(2) + 'deg) rotateX(' + current.y.toFixed(2) + 'deg) scale3d(1.04,1.04,1)';
+
+                if (Math.abs(current.x - target.x) < 0.05 && Math.abs(current.y - target.y) < 0.05) {
+                    current.x = target.x;
+                    current.y = target.y;
+                    if (target.x === 0 && target.y === 0) {
+                        card.style.transform = 'perspective(1000px)';
+                    }
+                    raf = null;
+                    return;
+                }
+
+                raf = window.requestAnimationFrame(animate);
+            }
+
+            function setTarget(normX, normY) {
+                target.x = Math.max(-1, Math.min(1, normX)) * 18;
+                target.y = Math.max(-1, Math.min(1, -normY)) * 18;
+                if (!raf) {
+                    raf = window.requestAnimationFrame(animate);
+                }
+            }
+
+            card.addEventListener('mousemove', function (event) {
+                var rect = card.getBoundingClientRect();
+                var offsetX = event.clientX - rect.left;
+                var offsetY = event.clientY - rect.top;
+                var normX = (offsetX / rect.width) * 2 - 1;
+                var normY = (offsetY / rect.height) * 2 - 1;
+                setTarget(normX, normY);
+            });
+
+            card.addEventListener('mouseenter', function () {
+                setTarget(0, 0);
+                card.classList.add('flash');
+                window.setTimeout(function () {
+                    card.classList.remove('flash');
+                }, 600);
+            });
+
+            card.addEventListener('mouseleave', function () {
+                setTarget(0, 0);
+            });
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initTiltCards);
+    } else {
+        initTiltCards();
+    }
 })(jQuery);

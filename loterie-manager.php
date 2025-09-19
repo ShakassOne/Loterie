@@ -771,28 +771,157 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 return '';
             }
 
-            $capacity = intval( get_post_meta( $post_id, self::META_TICKET_CAPACITY, true ) );
-            $sold     = intval( get_post_meta( $post_id, self::META_TICKETS_SOLD, true ) );
-            $lot      = get_post_meta( $post_id, self::META_LOT_DESCRIPTION, true );
-            $end_date = get_post_meta( $post_id, self::META_END_DATE, true );
+            $capacity     = intval( get_post_meta( $post_id, self::META_TICKET_CAPACITY, true ) );
+            $sold         = max( 0, intval( get_post_meta( $post_id, self::META_TICKETS_SOLD, true ) ) );
+            $lot          = get_post_meta( $post_id, self::META_LOT_DESCRIPTION, true );
+            $end_date     = get_post_meta( $post_id, self::META_END_DATE, true );
+            $is_featured  = (bool) get_post_meta( $post_id, '_lm_is_featured', true );
+            $end_time     = $end_date ? strtotime( $end_date ) : false;
+            $now          = current_time( 'timestamp' );
+            $is_active    = $end_time ? $end_time >= $now : true;
+            $progress     = $capacity > 0 ? min( 100, round( ( $sold / max( $capacity, 1 ) ) * 100, 2 ) ) : 0;
+
+            $status_label = $is_active ? __( 'Active', 'loterie-manager' ) : __( 'Terminée', 'loterie-manager' );
+            $status_class = $is_active ? 'is-active' : 'is-ended';
+
+            $lot_value_label = '';
+            if ( '' !== $lot && null !== $lot ) {
+                $normalized_value = preg_replace( '/[^0-9,\.\-]/', '', (string) $lot );
+                $normalized_value = str_replace( ',', '.', $normalized_value );
+                if ( is_numeric( $normalized_value ) ) {
+                    $value            = floatval( $normalized_value );
+                    $decimals         = floor( $value ) !== $value ? 2 : 0;
+                    $lot_value_label  = sprintf( __( 'Valeur : %s €', 'loterie-manager' ), number_format_i18n( $value, $decimals ) );
+                }
+
+                if ( '' === $lot_value_label ) {
+                    $lot_value_label = $lot;
+                }
+            }
+
+            $countdown_boxes = array();
+            if ( $is_active && $end_time ) {
+                $diff = max( 0, $end_time - $now );
+
+                $days    = floor( $diff / DAY_IN_SECONDS );
+                $hours   = floor( ( $diff % DAY_IN_SECONDS ) / HOUR_IN_SECONDS );
+                $minutes = floor( ( $diff % HOUR_IN_SECONDS ) / MINUTE_IN_SECONDS );
+
+                $countdown_boxes = array(
+                    array(
+                        'value' => $days,
+                        'label' => __( 'JOURS', 'loterie-manager' ),
+                    ),
+                    array(
+                        'value' => $hours,
+                        'label' => __( 'HEURES', 'loterie-manager' ),
+                    ),
+                    array(
+                        'value' => $minutes,
+                        'label' => __( 'MINUTES', 'loterie-manager' ),
+                    ),
+                );
+            }
+
+            $participants_label = sprintf(
+                _n( '%d participant', '%d participants', $sold, 'loterie-manager' ),
+                $sold
+            );
+
+            $goal_label = $capacity > 0
+                ? sprintf( __( 'Objectif : %s', 'loterie-manager' ), number_format_i18n( $capacity ) )
+                : '';
+
+            $thumbnail = get_the_post_thumbnail( $post_id, 'large', array( 'class' => 'lm-lottery-card__image', 'loading' => 'lazy' ) );
+            $permalink = get_permalink( $post_id );
+
+            $formatted_draw_date = $end_time
+                ? sprintf( __( 'Tirage le %s', 'loterie-manager' ), date_i18n( get_option( 'date_format' ), $end_time ) )
+                : '';
 
             ob_start();
             ?>
-            <div class="lm-loterie-summary" data-loterie-id="<?php echo esc_attr( $post_id ); ?>">
-                <h3 class="lm-loterie-summary__title"><?php echo esc_html( get_the_title( $post_id ) ); ?></h3>
-                <?php if ( ! empty( $lot ) ) : ?>
-                    <p class="lm-loterie-summary__prize"><?php echo esc_html( $lot ); ?></p>
-                <?php endif; ?>
-                <?php if ( ! empty( $end_date ) ) : ?>
-                    <p class="lm-loterie-summary__end">
-                        <?php echo esc_html( sprintf( __( 'Clôture le %s', 'loterie-manager' ), date_i18n( get_option( 'date_format' ), strtotime( $end_date ) ) ) ); ?>
-                    </p>
-                <?php endif; ?>
-                <div class="lm-loterie-summary__progress">
-                    <div class="lm-loterie-summary__bar" style="width: <?php echo esc_attr( $capacity > 0 ? min( 100, round( ( $sold / max( $capacity, 1 ) ) * 100, 2 ) ) : 0 ); ?>%;"></div>
+            <article class="lm-lottery-card tilt-card<?php echo $is_featured ? ' lm-lottery-card--featured' : ''; ?>" data-loterie-id="<?php echo esc_attr( $post_id ); ?>">
+                <div class="tilt-card__inner">
+                    <div class="lm-lottery-card__media">
+                        <div class="lm-lottery-card__media-ratio">
+                            <?php
+                            if ( $thumbnail ) {
+                                echo $thumbnail; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+                            } else {
+                                ?>
+                                <div class="lm-lottery-card__placeholder" aria-hidden="true"></div>
+                                <?php
+                            }
+                            ?>
+                        </div>
+                        <span class="lm-lottery-card__badge lm-lottery-card__badge--status <?php echo esc_attr( $status_class ); ?>"><?php echo esc_html( $status_label ); ?></span>
+                        <?php if ( $is_featured ) : ?>
+                            <span class="lm-lottery-card__badge lm-lottery-card__badge--featured"><?php esc_html_e( 'En vedette', 'loterie-manager' ); ?></span>
+                        <?php endif; ?>
+                        <span class="lm-lottery-card__gradient" aria-hidden="true"></span>
+                        <div class="lm-lottery-card__info">
+                            <h3 class="lm-lottery-card__title"><?php echo esc_html( get_the_title( $post_id ) ); ?></h3>
+                            <?php if ( $lot_value_label ) : ?>
+                                <div class="lm-lottery-card__value"><?php echo esc_html( $lot_value_label ); ?></div>
+                            <?php endif; ?>
+
+                            <?php if ( ! empty( $countdown_boxes ) ) : ?>
+                                <div class="lm-lottery-card__countdown" role="status" aria-live="polite">
+                                    <?php foreach ( $countdown_boxes as $box ) : ?>
+                                        <div class="lm-lottery-card__countdown-box">
+                                            <div class="lm-lottery-card__countdown-value"><?php echo esc_html( $box['value'] ); ?></div>
+                                            <div class="lm-lottery-card__countdown-label"><?php echo esc_html( $box['label'] ); ?></div>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
+
+                            <div class="lm-lottery-card__meta">
+                                <svg class="lm-lottery-card__meta-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                                    <path d="M16 21V19C16 17.9391 15.5786 16.9217 14.8284 16.1716C14.0783 15.4214 13.0609 15 12 15H6C4.93913 15 3.92172 15.4214 3.17157 16.1716C2.42143 16.9217 2 17.9391 2 19V21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                                    <path d="M9 11C10.6569 11 12 9.65685 12 8C12 6.34315 10.6569 5 9 5C7.34315 5 6 6.34315 6 8C6 9.65685 7.34315 11 9 11Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                                    <path d="M21 21V19C20.9993 18.1137 20.7044 17.2531 20.1614 16.5499C19.6184 15.8466 18.8572 15.3403 18 15.1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                                    <path d="M16.5 5.1C17.3604 5.33864 18.1241 5.84529 18.6684 6.55097C19.2127 7.25665 19.5086 8.11976 19.5086 9.01C19.5086 9.90024 19.2127 10.7634 18.6684 11.4691C18.1241 12.1747 17.3604 12.6814 16.5 12.92" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                                <span class="lm-lottery-card__participants"><?php echo esc_html( $participants_label ); ?></span>
+                                <?php if ( $goal_label ) : ?>
+                                    <span class="lm-lottery-card__goal"><?php echo esc_html( $goal_label ); ?></span>
+                                <?php endif; ?>
+                            </div>
+
+                            <div class="progress-bar" role="progressbar" aria-valuenow="<?php echo esc_attr( $progress ); ?>" aria-valuemin="0" aria-valuemax="100">
+                                <span class="progress-bar-fill" style="width: <?php echo esc_attr( $progress ); ?>%;"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="lm-lottery-card__footer">
+                        <div class="lm-lottery-card__footer-date">
+                            <svg class="lm-lottery-card__footer-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                                <path d="M8 2V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                                <path d="M16 2V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                                <path d="M3.5 9.08997H20.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                                <path d="M21 8.5V18C21 19.1046 20.1046 20 19 20H5C3.89543 20 3 19.1046 3 18V8.5C3 7.39543 3.89543 6.5 5 6.5H19C20.1046 6.5 21 7.39543 21 8.5Z" stroke="currentColor" stroke-width="1.5" />
+                                <path d="M7.75 13H7.75999" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                                <path d="M12 13H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                                <path d="M16.25 13H16.26" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                                <path d="M7.75 16.5H7.75999" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                                <path d="M12 16.5H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                                <path d="M16.25 16.5H16.26" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            <?php if ( $formatted_draw_date ) : ?>
+                                <span><?php echo esc_html( $formatted_draw_date ); ?></span>
+                            <?php endif; ?>
+                        </div>
+                        <?php if ( $permalink ) : ?>
+                            <a class="lm-lottery-card__cta" href="<?php echo esc_url( $permalink ); ?>">
+                                <?php esc_html_e( 'Participer', 'loterie-manager' ); ?>
+                            </a>
+                        <?php endif; ?>
+                    </div>
                 </div>
-                <p class="lm-loterie-summary__stats"><?php echo esc_html( sprintf( __( '%1$d tickets vendus sur %2$d', 'loterie-manager' ), $sold, $capacity ) ); ?></p>
-            </div>
+            </article>
             <?php
 
             return (string) ob_get_clean();
