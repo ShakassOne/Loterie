@@ -102,7 +102,11 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             add_filter( 'woocommerce_get_cart_item_from_session', array( $this, 'restore_cart_item_data' ), 10, 3 );
             add_filter( 'woocommerce_get_item_data', array( $this, 'display_cart_item_data' ), 10, 2 );
             add_action( 'woocommerce_checkout_create_order_line_item', array( $this, 'store_order_item_data' ), 10, 4 );
+            add_filter( 'woocommerce_order_item_display_meta_key', array( $this, 'filter_order_item_meta_key' ), 10, 3 );
+            add_filter( 'woocommerce_order_item_display_meta_value', array( $this, 'filter_order_item_meta_value' ), 10, 3 );
+            add_filter( 'woocommerce_hidden_order_itemmeta', array( $this, 'hide_order_item_meta' ) );
             add_action( 'woocommerce_order_status_completed', array( $this, 'sync_order_ticket_counts' ) );
+            add_action( 'woocommerce_order_status_processing', array( $this, 'sync_order_ticket_counts' ) );
 
             // Loterie meta boxes on posts.
             add_action( 'add_meta_boxes', array( $this, 'register_loterie_meta_box' ) );
@@ -420,6 +424,102 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
         }
 
         /**
+         * Adjusts the display key for custom order item meta.
+         *
+         * @param string        $display_key Display key.
+         * @param WC_Meta_Data  $meta        Meta object.
+         * @param WC_Order_Item $item        Order item.
+         *
+         * @return string
+         */
+        public function filter_order_item_meta_key( $display_key, $meta, $item ) {
+            if ( isset( $meta->key ) && 'lm_lottery_selection' === $meta->key ) {
+                return __( 'Loteries', 'loterie-manager' );
+            }
+
+            return $display_key;
+        }
+
+        /**
+         * Adjusts the display value for custom order item meta.
+         *
+         * @param string        $display_value Display value.
+         * @param WC_Meta_Data  $meta          Meta object.
+         * @param WC_Order_Item $item          Order item.
+         *
+         * @return string
+         */
+        public function filter_order_item_meta_value( $display_value, $meta, $item ) {
+            if ( isset( $meta->key ) && 'lm_lottery_selection' === $meta->key ) {
+                $names = $this->get_order_item_loterie_names( $item );
+
+                if ( ! empty( $names ) ) {
+                    $names = array_map( static function ( $name ) {
+                        return sanitize_text_field( $name );
+                    }, $names );
+
+                    return implode( ', ', $names );
+                }
+
+                return '';
+            }
+
+            return $display_value;
+        }
+
+        /**
+         * Hides technical order item meta from customer facing views.
+         *
+         * @param array $hidden_keys Hidden keys.
+         *
+         * @return array
+         */
+        public function hide_order_item_meta( $hidden_keys ) {
+            $hidden_keys[] = 'lm_ticket_allocation';
+            $hidden_keys[] = 'lm_ticket_distribution';
+
+            return array_values( array_unique( $hidden_keys ) );
+        }
+
+        /**
+         * Retrieves sanitized loterie names for a given order item.
+         *
+         * @param WC_Order_Item $item Order item.
+         *
+         * @return array<int, string>
+         */
+        private function get_order_item_loterie_names( $item ) {
+            if ( ! $item ) {
+                return array();
+            }
+
+            $selection = (array) $item->get_meta( 'lm_lottery_selection', true );
+            $selection = array_map( 'intval', $selection );
+            $selection = array_filter(
+                array_unique( $selection ),
+                static function ( $value ) {
+                    return $value > 0;
+                }
+            );
+
+            if ( empty( $selection ) ) {
+                return array();
+            }
+
+            $names = array();
+
+            foreach ( $selection as $loterie_id ) {
+                $title = get_the_title( $loterie_id );
+
+                if ( '' !== $title ) {
+                    $names[] = wp_strip_all_tags( $title );
+                }
+            }
+
+            return $names;
+        }
+
+        /**
          * Stores loterie data on order line items.
          *
          * @param WC_Order_Item_Product $item   Order item instance.
@@ -467,6 +567,12 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 return;
             }
 
+            if ( 'yes' === $order->get_meta( '_lm_ticket_counts_synced', true ) ) {
+                return;
+            }
+
+            $counts_updated = false;
+
             foreach ( $order->get_items() as $item ) {
                 $distribution = $this->get_item_ticket_distribution( $item );
 
@@ -491,7 +597,13 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 foreach ( $counts as $loterie_id => $count ) {
                     $current = intval( get_post_meta( $loterie_id, self::META_TICKETS_SOLD, true ) );
                     update_post_meta( $loterie_id, self::META_TICKETS_SOLD, $current + $count );
+                    $counts_updated = true;
                 }
+            }
+
+            if ( $counts_updated ) {
+                $order->update_meta_data( '_lm_ticket_counts_synced', 'yes' );
+                $order->save();
             }
         }
 
