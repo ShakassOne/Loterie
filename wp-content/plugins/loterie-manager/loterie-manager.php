@@ -427,6 +427,19 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             if ( $ticket_allocation > 0 ) {
                 $item->add_meta_data( 'lm_ticket_allocation', $ticket_allocation );
             }
+
+            $quantity             = isset( $values['quantity'] ) ? intval( $values['quantity'] ) : $item->get_quantity();
+            $effective_allocation = $ticket_allocation > 0 ? $ticket_allocation : 1;
+
+            if ( $quantity > 0 && ! empty( $values['lm_lottery_selection'] ) ) {
+                $tickets_total = max( 1, $effective_allocation * $quantity );
+                $distribution = $this->normalize_ticket_distribution( (array) $values['lm_lottery_selection'], $tickets_total );
+                $distribution = array_map( 'intval', $distribution );
+
+                if ( ! empty( $distribution ) ) {
+                    $item->add_meta_data( 'lm_ticket_distribution', $distribution );
+                }
+            }
         }
 
         /**
@@ -446,23 +459,29 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             }
 
             foreach ( $order->get_items() as $item ) {
-                $loteries = $item->get_meta( 'lm_lottery_selection', true );
+                $distribution = $this->get_item_ticket_distribution( $item );
 
-                if ( empty( $loteries ) ) {
+                if ( empty( $distribution ) ) {
                     continue;
                 }
 
-                $ticket_allocation = intval( $item->get_meta( 'lm_ticket_allocation', true ) );
-                if ( $ticket_allocation <= 0 ) {
-                    $ticket_allocation = 1;
+                $counts = array();
+                foreach ( $distribution as $loterie_id ) {
+                    $loterie_id = intval( $loterie_id );
+                    if ( $loterie_id <= 0 ) {
+                        continue;
+                    }
+
+                    if ( ! isset( $counts[ $loterie_id ] ) ) {
+                        $counts[ $loterie_id ] = 0;
+                    }
+
+                    $counts[ $loterie_id ]++;
                 }
 
-                $quantity      = $item->get_quantity();
-                $tickets_total = $ticket_allocation * $quantity;
-
-                foreach ( (array) $loteries as $loterie_id ) {
+                foreach ( $counts as $loterie_id => $count ) {
                     $current = intval( get_post_meta( $loterie_id, self::META_TICKETS_SOLD, true ) );
-                    update_post_meta( $loterie_id, self::META_TICKETS_SOLD, $current + $tickets_total );
+                    update_post_meta( $loterie_id, self::META_TICKETS_SOLD, $current + $count );
                 }
             }
         }
@@ -707,34 +726,51 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             wp_nonce_field( 'lm_reassign_ticket', 'lm_reassign_ticket_nonce' );
             echo '<table class="lm-ticket-table">';
             echo '<thead><tr>';
-            echo '<th>' . esc_html__( 'Loterie', 'loterie-manager' ) . '</th>';
-            echo '<th>' . esc_html__( 'Tickets', 'loterie-manager' ) . '</th>';
+            echo '<th>' . esc_html__( 'Ticket', 'loterie-manager' ) . '</th>';
+            echo '<th>' . esc_html__( 'Loterie actuelle', 'loterie-manager' ) . '</th>';
             echo '<th>' . esc_html__( 'Réaffecter vers', 'loterie-manager' ) . '</th>';
             echo '<th>' . esc_html__( 'Action', 'loterie-manager' ) . '</th>';
             echo '</tr></thead><tbody>';
 
             $available_loteries = $this->get_loterie_choices();
+            $counter            = 1;
 
-            foreach ( $tickets as $loterie_id => $data ) {
+            foreach ( $tickets as $reference => $ticket ) {
                 echo '<tr>';
-                echo '<td>' . esc_html( $data['title'] );
-                if ( ! empty( $data['end_date'] ) ) {
-                    echo '<br /><small>' . esc_html( sprintf( __( 'Fin le %s', 'loterie-manager' ), date_i18n( get_option( 'date_format' ), strtotime( $data['end_date'] ) ) ) ) . '</small>';
+                echo '<td>';
+                echo '<strong>' . esc_html( sprintf( __( 'Ticket #%d', 'loterie-manager' ), $counter ) ) . '</strong>';
+                if ( ! empty( $ticket['product_name'] ) ) {
+                    echo '<br /><small>' . esc_html( $ticket['product_name'] ) . '</small>';
                 }
                 echo '</td>';
-                echo '<td>' . intval( $data['tickets'] ) . '</td>';
+
                 echo '<td>';
-                echo '<select name="lm_reassign[' . intval( $loterie_id ) . ']">';
+                if ( $ticket['loterie_id'] > 0 ) {
+                    echo esc_html( $ticket['title'] );
+                    if ( ! empty( $ticket['end_date'] ) ) {
+                        echo '<br /><small>' . esc_html( sprintf( __( 'Fin le %s', 'loterie-manager' ), date_i18n( get_option( 'date_format' ), strtotime( $ticket['end_date'] ) ) ) ) . '</small>';
+                    }
+                } else {
+                    esc_html_e( 'Non attribué', 'loterie-manager' );
+                }
+                echo '</td>';
+
+                echo '<td>';
+                echo '<select name="lm_reassign[' . esc_attr( $reference ) . ']">';
                 echo '<option value="">' . esc_html__( 'Sélectionnez une loterie', 'loterie-manager' ) . '</option>';
                 foreach ( $available_loteries as $choice_id => $label ) {
                     printf( '<option value="%1$d">%2$s</option>', intval( $choice_id ), esc_html( $label ) );
                 }
                 echo '</select>';
                 echo '</td>';
-                echo '<td><button type="submit" class="button">' . esc_html__( 'Réaffecter', 'loterie-manager' ) . '</button>';
-                echo '<input type="hidden" name="lm_original_loterie[]" value="' . intval( $loterie_id ) . '" />';
+
+                echo '<td>';
+                echo '<button type="submit" class="button">' . esc_html__( 'Réaffecter', 'loterie-manager' ) . '</button>';
+                echo '<input type="hidden" name="lm_ticket_reference[]" value="' . esc_attr( $reference ) . '" />';
                 echo '</td>';
+
                 echo '</tr>';
+                $counter++;
             }
 
             echo '</tbody></table>';
@@ -753,7 +789,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 return;
             }
 
-            if ( ! isset( $_POST['lm_reassign_ticket_nonce'], $_POST['lm_original_loterie'], $_POST['lm_reassign'] ) ) {
+            if ( ! isset( $_POST['lm_reassign_ticket_nonce'], $_POST['lm_ticket_reference'], $_POST['lm_reassign'] ) ) {
                 return;
             }
 
@@ -762,55 +798,60 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             }
 
             $user_id = get_current_user_id();
-            $summary = $this->get_customer_ticket_summary( $user_id );
-            $targets = array_map( 'intval', (array) $_POST['lm_reassign'] );
-            $originals = array_map( 'intval', (array) $_POST['lm_original_loterie'] );
+            $summary    = $this->get_customer_ticket_summary( $user_id );
+            $references = array_map( 'sanitize_text_field', (array) $_POST['lm_ticket_reference'] );
 
-            foreach ( $originals as $original_id ) {
-                if ( empty( $summary[ $original_id ]['items'] ) ) {
+            $targets = array();
+            foreach ( (array) $_POST['lm_reassign'] as $reference => $value ) {
+                $targets[ sanitize_text_field( $reference ) ] = intval( $value );
+            }
+
+            foreach ( $references as $reference ) {
+                if ( empty( $reference ) || empty( $summary[ $reference ] ) ) {
                     continue;
                 }
 
-                $new_loterie_id = isset( $targets[ $original_id ] ) ? intval( $targets[ $original_id ] ) : 0;
-                if ( $new_loterie_id <= 0 || $new_loterie_id === $original_id ) {
+                $ticket         = $summary[ $reference ];
+                $new_loterie_id = isset( $targets[ $reference ] ) ? intval( $targets[ $reference ] ) : 0;
+                if ( $new_loterie_id <= 0 || $new_loterie_id === $ticket['loterie_id'] ) {
                     continue;
                 }
 
-                foreach ( $summary[ $original_id ]['items'] as $item_ref ) {
-                    $order = wc_get_order( $item_ref['order_id'] );
-                    if ( ! $order ) {
-                        continue;
-                    }
+                $order = wc_get_order( $ticket['order_id'] );
+                if ( ! $order ) {
+                    continue;
+                }
 
-                    $item = $order->get_item( $item_ref['item_id'] );
-                    if ( ! $item ) {
-                        continue;
-                    }
+                $item = $order->get_item( $ticket['item_id'] );
+                if ( ! $item ) {
+                    continue;
+                }
 
-                    $selection = (array) $item->get_meta( 'lm_lottery_selection', true );
-                    $selection = array_map( 'intval', $selection );
+                $distribution = $this->get_item_ticket_distribution( $item );
+                if ( ! isset( $distribution[ $ticket['ticket_index'] ] ) ) {
+                    continue;
+                }
 
-                    $key = array_search( $original_id, $selection, true );
-                    if ( false === $key ) {
-                        continue;
-                    }
+                $original_id = intval( $distribution[ $ticket['ticket_index'] ] );
+                if ( $original_id === $new_loterie_id ) {
+                    continue;
+                }
 
-                    $selection[ $key ] = $new_loterie_id;
-                    $item->update_meta_data( 'lm_lottery_selection', array_values( $selection ) );
-                    $item->save();
+                $distribution[ $ticket['ticket_index'] ] = $new_loterie_id;
+                $this->set_item_ticket_distribution( $item, $distribution );
 
-                    $tickets = intval( $item->get_meta( 'lm_ticket_allocation', true ) );
-                    if ( $tickets <= 0 ) {
-                        $tickets = 1;
-                    }
+                $unique_selection = array_values( array_unique( array_filter( $distribution ) ) );
+                $item->update_meta_data( 'lm_lottery_selection', $unique_selection );
+                $item->save();
 
-                    $tickets_total = $tickets * $item->get_quantity();
-
+                if ( $original_id > 0 ) {
                     $current_original = intval( get_post_meta( $original_id, self::META_TICKETS_SOLD, true ) );
-                    $current_new      = intval( get_post_meta( $new_loterie_id, self::META_TICKETS_SOLD, true ) );
+                    update_post_meta( $original_id, self::META_TICKETS_SOLD, max( 0, $current_original - 1 ) );
+                }
 
-                    update_post_meta( $original_id, self::META_TICKETS_SOLD, max( 0, $current_original - $tickets_total ) );
-                    update_post_meta( $new_loterie_id, self::META_TICKETS_SOLD, $current_new + $tickets_total );
+                if ( $new_loterie_id > 0 ) {
+                    $current_new = intval( get_post_meta( $new_loterie_id, self::META_TICKETS_SOLD, true ) );
+                    update_post_meta( $new_loterie_id, self::META_TICKETS_SOLD, $current_new + 1 );
                 }
             }
 
@@ -869,43 +910,117 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
 
             foreach ( $orders as $order ) {
                 foreach ( $order->get_items() as $item_id => $item ) {
-                    $selection = (array) $item->get_meta( 'lm_lottery_selection', true );
-                    if ( empty( $selection ) ) {
+                    $distribution = $this->get_item_ticket_distribution( $item );
+                    if ( empty( $distribution ) ) {
                         continue;
                     }
 
-                    $ticket_allocation = intval( $item->get_meta( 'lm_ticket_allocation', true ) );
-                    if ( $ticket_allocation <= 0 ) {
-                        $ticket_allocation = 1;
-                    }
-
-                    $tickets_total = $ticket_allocation * $item->get_quantity();
-
-                    foreach ( $selection as $loterie_id ) {
+                    foreach ( $distribution as $index => $loterie_id ) {
                         $loterie_id = intval( $loterie_id );
-                        if ( $loterie_id <= 0 ) {
-                            continue;
-                        }
+                        $reference  = sprintf( '%1$d:%2$d:%3$d', $order->get_id(), $item_id, $index );
 
-                        if ( ! isset( $summary[ $loterie_id ] ) ) {
-                            $summary[ $loterie_id ] = array(
-                                'tickets'  => 0,
-                                'title'    => get_the_title( $loterie_id ),
-                                'end_date' => get_post_meta( $loterie_id, self::META_END_DATE, true ),
-                                'items'    => array(),
-                            );
-                        }
-
-                        $summary[ $loterie_id ]['tickets'] += $tickets_total;
-                        $summary[ $loterie_id ]['items'][] = array(
-                            'order_id' => $order->get_id(),
-                            'item_id'  => $item_id,
+                        $summary[ $reference ] = array(
+                            'loterie_id'   => $loterie_id,
+                            'title'        => $loterie_id > 0 ? get_the_title( $loterie_id ) : '',
+                            'end_date'     => $loterie_id > 0 ? get_post_meta( $loterie_id, self::META_END_DATE, true ) : '',
+                            'order_id'     => $order->get_id(),
+                            'item_id'      => $item_id,
+                            'ticket_index' => $index,
+                            'product_name' => $item->get_name(),
                         );
                     }
                 }
             }
 
             return $summary;
+        }
+
+        /**
+         * Retrieves the per-ticket distribution for an order item.
+         *
+         * @param WC_Order_Item_Product $item Order item instance.
+         *
+         * @return array<int, int>
+         */
+        private function get_item_ticket_distribution( $item ) {
+            if ( ! $item ) {
+                return array();
+            }
+
+            $ticket_allocation = intval( $item->get_meta( 'lm_ticket_allocation', true ) );
+            if ( $ticket_allocation <= 0 ) {
+                $ticket_allocation = 1;
+            }
+
+            $quantity      = max( 1, $item->get_quantity() );
+            $tickets_total = max( 1, $ticket_allocation * $quantity );
+
+            $distribution = (array) $item->get_meta( 'lm_ticket_distribution', true );
+            $distribution = array_map( 'intval', $distribution );
+
+            if ( count( $distribution ) !== $tickets_total ) {
+                $selection = (array) $item->get_meta( 'lm_lottery_selection', true );
+                $selection = array_map( 'intval', $selection );
+                $distribution = $this->normalize_ticket_distribution( $selection, $tickets_total );
+                $this->set_item_ticket_distribution( $item, $distribution );
+            }
+
+            return $distribution;
+        }
+
+        /**
+         * Persists the ticket distribution for an order item.
+         *
+         * @param WC_Order_Item_Product $item         Order item instance.
+         * @param array<int, int>       $distribution Distribution data.
+         */
+        private function set_item_ticket_distribution( $item, $distribution ) {
+            if ( ! $item ) {
+                return;
+            }
+
+            $distribution = array_map( 'intval', (array) $distribution );
+            $item->update_meta_data( 'lm_ticket_distribution', array_values( $distribution ) );
+            $item->save();
+        }
+
+        /**
+         * Normalizes selection data to a per-ticket distribution.
+         *
+         * @param array<int, int> $selection     Selected loterie IDs.
+         * @param int             $tickets_total Number of tickets to distribute.
+         *
+         * @return array<int, int>
+         */
+        private function normalize_ticket_distribution( $selection, $tickets_total ) {
+            $tickets_total = intval( $tickets_total );
+
+            if ( $tickets_total <= 0 ) {
+                return array();
+            }
+
+            $selection = array_values( array_filter( array_map( 'intval', (array) $selection ), static function ( $value ) {
+                return $value >= 0;
+            } ) );
+
+            if ( empty( $selection ) ) {
+                return array_fill( 0, $tickets_total, 0 );
+            }
+
+            if ( 1 === count( $selection ) ) {
+                return array_fill( 0, $tickets_total, $selection[0] );
+            }
+
+            $distribution = array();
+            $index        = 0;
+            $count        = count( $selection );
+
+            while ( count( $distribution ) < $tickets_total ) {
+                $distribution[] = $selection[ $index % $count ];
+                $index++;
+            }
+
+            return array_slice( $distribution, 0, $tickets_total );
         }
     }
 
