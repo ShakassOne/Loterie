@@ -5,7 +5,7 @@ Plugin URI: https://github.com/ShakassOne/Loterie
 Description: Gestion des loteries pour WooCommerce (articles = loteries, progression, tickets, réaffectation).
 Version: 1.0.0
 Author: Shakass Communication
-Author URI: https://winshirt.fr
+Author URI: https://shakass.com
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
