@@ -3,8 +3,6 @@ name: Deploy Loterie to IONOS (SFTP)
 on:
   push:
     branches: [ "main" ]
-    # déploie aussi lorsqu'on crée un tag de version
-    tags-ignore: [ "*" ]
   workflow_dispatch:
 
 jobs:
@@ -17,12 +15,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      # (optionnel) Valider que le fichier principal existe à la racine
+      # Vérifie que le fichier principal du plugin est bien à la racine du repo
       - name: Verify plugin entry file
         run: |
-          test -f "loterie-winshirt.php" || (echo "Missing loterie-winshirt.php at repo root" && exit 1)
+          test -f "loterie-manager.php" || (echo "Missing loterie-manager.php at repo root" && exit 1)
 
-      # Déploiement SFTP
+      # Déploiement SFTP vers IONOS
       - name: SFTP Deploy to IONOS
         uses: wlixcc/SFTP-Deploy-Action@v1.2.4
         with:
@@ -30,13 +28,11 @@ jobs:
           port: 22
           username: ${{ secrets.IONOS_USER }}
           password: ${{ secrets.IONOS_PASS }}
-          # IMPORTANT: chemin exact du dossier plugin sur ton serveur
-          # Adapte le nom final du dossier plugin ci-dessous (ex: loterie-winshirt)
-          local_path: .
+          # IMPORTANT : ce chemin DOIT être le dossier exact de ton plugin côté serveur
+          # ex : /Winshirt/wp-content/plugins/Loterie/  ou  /Winshirt/wp-content/plugins/loterie-winshirt/
           remote_path: ${{ secrets.IONOS_PATH }}
-          # Supprime ce qui n'existe plus côté Git (sécurisé si le remote_path ne contient QUE ce plugin)
+          local_path: .
           delete_remote_files: true
-          # Fichiers/dossiers à exclure du déploiement
           exclude: |
             .git*
             .github/
