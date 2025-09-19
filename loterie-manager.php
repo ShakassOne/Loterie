@@ -684,11 +684,26 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
          * @return string
          */
         public function inject_loterie_overlay( $html, $post_id, $post_thumbnail_id, $size, $attr ) {
-            if ( is_admin() || is_singular() || ! in_the_loop() || ! is_main_query() ) {
+            if ( is_admin() ) {
                 return $html;
             }
 
             if ( empty( $html ) ) {
+                return $html;
+            }
+
+            $classes = '';
+            if ( is_array( $attr ) ) {
+                if ( isset( $attr['class'] ) ) {
+                    $classes = $attr['class'];
+                } else {
+                    $classes = implode( ' ', array_map( 'strval', $attr ) );
+                }
+            } elseif ( is_string( $attr ) ) {
+                $classes = $attr;
+            }
+
+            if ( false !== strpos( $classes, 'lm-lottery-card__image' ) ) {
                 return $html;
             }
 
