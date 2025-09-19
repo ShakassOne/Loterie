@@ -15,10 +15,22 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Vérif : le fichier d’entrée du plugin est bien à la racine du repo
       - name: Verify plugin entry file
         run: |
           test -f "loterie-manager.php" || (echo "Missing loterie-manager.php at repo root" && exit 1)
+
+      # Prépare un dossier de déploiement sans .git/.github/...
+      - name: Build deploy directory
+        run: |
+          mkdir -p deploy
+          rsync -av --delete \
+            --exclude ".git*" \
+            --exclude ".github/" \
+            --exclude "node_modules/" \
+            --exclude "*.md" \
+            --exclude "*.zip" \
+            --exclude ".DS_Store" \
+            ./ ./deploy/
 
       - name: SFTP Deploy to IONOS
         uses: wlixcc/SFTP-Deploy-Action@v1.2.4
@@ -27,10 +39,8 @@ jobs:
           port: 22
           username: ${{ secrets.IONOS_USER }}
           password: ${{ secrets.IONOS_PASS }}
-          local_path: .
-          # ⬇️ Mets le chemin ABSOLU complet ici dans le secret IONOS_PATH
+          local_path: ./deploy
           remote_path: ${{ secrets.IONOS_PATH }}
           delete_remote_files: true
           sftp_only: true
-          # (optionnel) arguments SFTP
           sftpargs: "-o StrictHostKeyChecking=no"
