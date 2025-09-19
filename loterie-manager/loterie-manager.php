@@ -1,12 +1,21 @@
 <?php
-/**
- * Plugin Name: Loterie Manager
- * Description: Gestion des loteries associées aux produits WooCommerce et suivi des tickets.
- * Version: 1.0.0
- * Author: OpenAI Assistant
- * Text Domain: loterie-manager
- * Domain Path: /languages
- */
+/*
+Plugin Name: WinShirt Loterie Manager
+Plugin URI: https://github.com/ShakassOne/Loterie
+Description: Gestion des loteries pour WooCommerce (articles = loteries, progression, tickets, réaffectation).
+Version: 1.0.0
+Author: Shakass Communication
+Author URI: https://winshirt.fr
+Requires at least: 6.0
+Tested up to: 6.6
+Requires PHP: 7.4
+Text Domain: loterie-manager
+Domain Path: /languages
+
+GitHub Plugin URI: ShakassOne/Loterie
+Primary Branch: main
+*/
+
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
