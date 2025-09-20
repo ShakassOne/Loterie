@@ -3,7 +3,7 @@
 Plugin Name: WinShirt Loterie Manager
 Plugin URI: https://github.com/ShakassOne/loterie-winshirt
 Description: Gestion des loteries pour WooCommerce.
-Version: 1.2.3
+Version: 1.2.4
 Author: Shakass Communication
 Author URI: https://shakass.com
 Text Domain: loterie-winshirt
