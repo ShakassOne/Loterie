@@ -138,7 +138,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 'loterie-manager-frontend',
                 plugins_url( 'assets/css/frontend.css', __FILE__ ),
                 array(),
-                '1.0.0'
+                '1.0.1'
             );
 
             wp_enqueue_script(
