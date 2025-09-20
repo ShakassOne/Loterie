@@ -211,15 +211,6 @@
     position: relative;
     overflow: hidden;
     border-radius: inherit;
-    --lm-card-mask: url('../img/lottery-card-mask.svg');
-    -webkit-mask-image: var(--lm-card-mask);
-    mask-image: var(--lm-card-mask);
-    -webkit-mask-size: cover;
-    mask-size: cover;
-    -webkit-mask-repeat: no-repeat;
-    mask-repeat: no-repeat;
-    -webkit-mask-position: center;
-    mask-position: center;
     background-color: rgba(15, 23, 42, 0.65);
 }
 
