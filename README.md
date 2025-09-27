@@ -10,12 +10,13 @@ Le plugin **Loterie Manager** ajoute une couche de gestion de loteries aux sites
 
 ## Configuration des loteries
 
-1. Créez ou éditez un article WordPress existant.
-2. Renseignez la métabox **Paramètres de loterie** :
+1. Créez ou éditez un **article WordPress** (type `post`).
+2. Dans la métabox **Paramètres de loterie**, complétez les informations suivantes :
    - **Capacité totale de tickets** : nombre maximal de tickets disponibles.
    - **Description du lot** : informations sur le lot mis en jeu.
    - **Date de fin** : échéance de la loterie (affichée sur le site et dans l'espace client).
-3. Publiez l'article. Il sera utilisé comme loterie et un overlay de progression sera ajouté automatiquement dans les boucles d’articles.
+3. Publiez l'article pour qu'il devienne disponible comme loterie (les brouillons, articles privés ou planifiés ne seront pas proposés lors de la sélection sur les produits).
+4. Vérifiez que la métabox affiche bien les valeurs enregistrées : elles seront utilisées pour alimenter le popup et l'overlay de progression.
 
 ### Shortcode
 
@@ -24,10 +25,11 @@ Utilisez `[lm_loterie id="123"]` pour afficher un résumé d'une loterie spécif
 ## Configuration des produits WooCommerce
 
 1. Ouvrez un produit dans WooCommerce.
-2. Dans l’onglet **Général**, définissez :
-   - **Tickets attribués** : nombre de tickets générés par achat du produit.
-   - **Loteries cibles** : une ou plusieurs loteries (articles) pouvant recevoir les tickets.
-3. Mettez à jour le produit. Lorsqu'un client ajoute ce produit au panier, un popup lui demandera de choisir la ou les loteries auxquelles ses tickets seront associés.
+2. Dans l’onglet **Général** :
+   - Renseignez **Tickets attribués** (un entier positif ou `0` si vous ne souhaitez pas limiter le nombre de loteries sélectionnables).
+   - Sélectionnez **Loteries cibles** : le menu déroulant liste tous les articles publiés. Utilisez `Ctrl`/`Cmd` + clic pour sélectionner plusieurs loteries.
+3. Mettez à jour le produit. Le champ **Loteries cibles** doit maintenant afficher toutes les loteries choisies (par exemple trois loteries si vous en avez créé trois). Ce sont uniquement ces loteries qui seront proposées aux clients lors de l'ajout au panier.
+4. Sur la fiche produit côté boutique, cliquez sur « Ajouter au panier » : le popup affiche la liste complète des loteries liées. Si toutes vos loteries ne sont pas visibles, retournez sur l’édition du produit et vérifiez qu’elles sont bien sélectionnées et publiées.
 
 ## Expérience client
 
