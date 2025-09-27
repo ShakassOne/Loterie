@@ -63,18 +63,6 @@
 
             var description = $('<div>');
             description.append($('<strong>').text(lottery.title));
-            if (lottery.prize) {
-                description.append($('<div>').text(lottery.prize));
-            }
-
-            if (lottery.capacity) {
-                var soldText = lottery.sold ? lottery.sold : 0;
-                description.append($('<small>').text(soldText + ' / ' + lottery.capacity));
-            }
-
-            if (lottery.end_date) {
-                description.append($('<small>').text(lottery.end_date));
-            }
 
             option.append(checkbox).append(description);
             optionsWrapper.append(option);

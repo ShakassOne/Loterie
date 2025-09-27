@@ -431,6 +431,10 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 return __( 'Loteries', 'loterie-manager' );
             }
 
+            if ( isset( $meta->key ) && 'lm_ticket_allocation' === $meta->key ) {
+                return __( 'Tickets', 'loterie-manager' );
+            }
+
             return $display_key;
         }
 
@@ -456,6 +460,58 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 }
 
                 return '';
+            }
+
+            if ( isset( $meta->key ) && 'lm_ticket_allocation' === $meta->key ) {
+                $allocation = intval( $meta->value );
+                if ( $allocation <= 0 ) {
+                    $allocation = 1;
+                }
+
+                $quantity = ( $item && method_exists( $item, 'get_quantity' ) ) ? intval( $item->get_quantity() ) : 1;
+                if ( $quantity <= 0 ) {
+                    $quantity = 1;
+                }
+
+                $tickets_total = max( 1, $allocation * $quantity );
+                $names         = $this->get_order_item_loterie_names( $item );
+
+                $names = array_map( static function ( $name ) {
+                    return sanitize_text_field( $name );
+                }, $names );
+
+                if ( empty( $names ) ) {
+                    return sprintf(
+                        _n( '%d ticket', '%d tickets', $tickets_total, 'loterie-manager' ),
+                        $tickets_total
+                    );
+                }
+
+                $names_list = implode( ', ', $names );
+
+                if ( count( $names ) === 1 ) {
+                    return sprintf(
+                        _n(
+                            '%1$d ticket pour la loterie : %2$s',
+                            '%1$d tickets pour la loterie : %2$s',
+                            $tickets_total,
+                            'loterie-manager'
+                        ),
+                        $tickets_total,
+                        $names_list
+                    );
+                }
+
+                return sprintf(
+                    _n(
+                        '%1$d ticket pour les loteries : %2$s',
+                        '%1$d tickets pour les loteries : %2$s',
+                        $tickets_total,
+                        'loterie-manager'
+                    ),
+                    $tickets_total,
+                    $names_list
+                );
             }
 
             return $display_value;
