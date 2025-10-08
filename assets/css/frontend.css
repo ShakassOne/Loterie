@@ -68,6 +68,7 @@
     gap: 0.5rem;
     padding: 0.75rem 1.75rem;
     border-radius: 15px;
+
     background: linear-gradient(90deg, #1fe4f5 0%, #3fbafe 100%);
     color: #ffffff;
     font-weight: 700;

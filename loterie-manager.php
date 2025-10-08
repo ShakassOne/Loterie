@@ -843,8 +843,15 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             $is_featured  = (bool) get_post_meta( $post_id, '_lm_is_featured', true );
             $end_time     = $end_date ? strtotime( $end_date ) : false;
             $now          = current_time( 'timestamp' );
+            $start_time   = get_post_time( 'U', false, $post_id );
             $is_active    = $end_time ? $end_time >= $now : true;
             $progress     = $capacity > 0 ? min( 100, round( ( $sold / max( $capacity, 1 ) ) * 100, 2 ) ) : 0;
+
+            $elapsed_days_count = null;
+            if ( $start_time ) {
+                $elapsed_days = floor( max( 0, $now - $start_time ) / DAY_IN_SECONDS );
+                $elapsed_days_count = $elapsed_days + 1;
+            }
 
             $status_label = $is_active ? __( 'Active', 'loterie-manager' ) : __( 'Terminée', 'loterie-manager' );
             $status_class = $is_active ? 'is-active' : 'is-ended';
@@ -920,6 +927,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 'capacity'           => $capacity,
                 'sold'               => $sold,
                 'progress'           => $progress,
+                'elapsed_days_count' => $elapsed_days_count,
                 'lot_value_label'    => $lot_value_label,
                 'countdown_boxes'    => $countdown_boxes,
                 'participants_label' => $participants_label,
@@ -1080,11 +1088,11 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             $capacity           = $context['capacity'];
             $sold               = $context['sold'];
             $countdown_boxes    = $context['countdown_boxes'];
+            $elapsed_days_count = isset( $context['elapsed_days_count'] ) ? absint( $context['elapsed_days_count'] ) : 0;
 
             $day_text = '';
-            if ( ! empty( $countdown_boxes ) && isset( $countdown_boxes[0]['value'] ) ) {
-                $day_value = absint( $countdown_boxes[0]['value'] );
-                $day_text  = sprintf( __( 'Jour %s', 'loterie-manager' ), number_format_i18n( $day_value ) );
+            if ( $elapsed_days_count > 0 ) {
+                $day_text = sprintf( __( 'Jour %s', 'loterie-manager' ), number_format_i18n( $elapsed_days_count ) );
             }
 
             $goal_text = '';
