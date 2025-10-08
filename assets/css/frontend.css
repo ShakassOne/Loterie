@@ -74,7 +74,80 @@
     margin-top: 0;
 }
 
-.lm-loterie-summary__stats {
+.lm-loterie-summary__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.lm-loterie-summary__status {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: #e5e7eb;
+    color: #111827;
+}
+
+.lm-loterie-summary__status.is-active {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.lm-loterie-summary__status.is-ended {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.lm-loterie-summary__prize,
+.lm-loterie-summary__date {
+    margin: 0 0 0.5rem;
+    color: #6b7280;
+}
+
+.lm-loterie-summary__countdown {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin: 0.5rem 0 0.75rem;
+}
+
+.lm-loterie-summary__countdown-box {
+    min-width: 68px;
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.8);
+    text-align: center;
+}
+
+.lm-loterie-summary__countdown-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #111827;
+}
+
+.lm-loterie-summary__countdown-label {
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    color: #6b7280;
+}
+
+.lm-loterie-summary__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    font-weight: 600;
+    margin: 0.75rem 0 0.5rem;
+}
+
+.lm-loterie-summary__tickets {
+    margin: 0 0 0.75rem;
     font-weight: 600;
 }
 
