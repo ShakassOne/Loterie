@@ -109,6 +109,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             // Frontend overlays & shortcodes.
             add_filter( 'post_thumbnail_html', array( $this, 'inject_loterie_overlay' ), 10, 5 );
             add_shortcode( 'lm_loterie', array( $this, 'render_loterie_shortcode' ) );
+            add_shortcode( 'lm_loterie_summary', array( $this, 'render_loterie_summary_shortcode' ) );
 
             // Account area.
             add_filter( 'woocommerce_account_menu_items', array( $this, 'register_account_menu' ) );
@@ -823,23 +824,16 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
         }
 
         /**
-         * Renders loterie data via shortcode.
+         * Builds a reusable context for loterie display components.
          *
-         * @param array $atts Shortcode attributes.
+         * @param int $post_id Loterie post ID.
          *
-         * @return string
+         * @return array<string, mixed>
          */
-        public function render_loterie_shortcode( $atts ) {
-            $atts = shortcode_atts(
-                array(
-                    'id' => get_the_ID(),
-                ),
-                $atts
-            );
-
-            $post_id = absint( $atts['id'] );
+        private function get_loterie_display_context( $post_id ) {
+            $post_id = absint( $post_id );
             if ( ! $post_id ) {
-                return '';
+                return array();
             }
 
             $capacity     = intval( get_post_meta( $post_id, self::META_TICKET_CAPACITY, true ) );
@@ -860,9 +854,9 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 $normalized_value = preg_replace( '/[^0-9,\.\-]/', '', (string) $lot );
                 $normalized_value = str_replace( ',', '.', $normalized_value );
                 if ( is_numeric( $normalized_value ) ) {
-                    $value            = floatval( $normalized_value );
-                    $decimals         = floor( $value ) !== $value ? 2 : 0;
-                    $lot_value_label  = sprintf( __( 'Valeur : %s €', 'loterie-manager' ), number_format_i18n( $value, $decimals ) );
+                    $value           = floatval( $normalized_value );
+                    $decimals        = floor( $value ) !== $value ? 2 : 0;
+                    $lot_value_label = sprintf( __( 'Valeur : %s €', 'loterie-manager' ), number_format_i18n( $value, $decimals ) );
                 }
 
                 if ( '' === $lot_value_label ) {
@@ -903,12 +897,76 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 ? sprintf( __( 'Objectif : %s', 'loterie-manager' ), number_format_i18n( $capacity ) )
                 : '';
 
-            $thumbnail = get_the_post_thumbnail( $post_id, 'large', array( 'class' => 'lm-lottery-card__image', 'loading' => 'lazy' ) );
-            $permalink = get_permalink( $post_id );
+            if ( $capacity > 0 ) {
+                $tickets_label = sprintf(
+                    __( '%1$d tickets vendus sur %2$d', 'loterie-manager' ),
+                    $sold,
+                    $capacity
+                );
+            } else {
+                $tickets_label = sprintf(
+                    __( '%d tickets vendus', 'loterie-manager' ),
+                    $sold
+                );
+            }
 
             $formatted_draw_date = $end_time
                 ? sprintf( __( 'Tirage le %s', 'loterie-manager' ), date_i18n( get_option( 'date_format' ), $end_time ) )
                 : '';
+
+            return array(
+                'post_id'            => $post_id,
+                'title'              => get_the_title( $post_id ),
+                'capacity'           => $capacity,
+                'sold'               => $sold,
+                'progress'           => $progress,
+                'lot_value_label'    => $lot_value_label,
+                'countdown_boxes'    => $countdown_boxes,
+                'participants_label' => $participants_label,
+                'goal_label'         => $goal_label,
+                'status_label'       => $status_label,
+                'status_class'       => $status_class,
+                'is_featured'        => $is_featured,
+                'formatted_draw_date'=> $formatted_draw_date,
+                'permalink'          => get_permalink( $post_id ),
+                'thumbnail'          => get_the_post_thumbnail( $post_id, 'large', array( 'class' => 'lm-lottery-card__image', 'loading' => 'lazy' ) ),
+                'tickets_label'      => $tickets_label,
+            );
+        }
+
+        /**
+         * Renders loterie data via shortcode.
+         *
+         * @param array $atts Shortcode attributes.
+         *
+         * @return string
+         */
+        public function render_loterie_shortcode( $atts ) {
+            $atts = shortcode_atts(
+                array(
+                    'id' => get_the_ID(),
+                ),
+                $atts
+            );
+
+            $context = $this->get_loterie_display_context( $atts['id'] );
+            if ( empty( $context ) ) {
+                return '';
+            }
+
+            $post_id            = $context['post_id'];
+            $thumbnail          = $context['thumbnail'];
+            $status_label       = $context['status_label'];
+            $status_class       = $context['status_class'];
+            $is_featured        = $context['is_featured'];
+            $lot_value_label    = $context['lot_value_label'];
+            $countdown_boxes    = $context['countdown_boxes'];
+            $participants_label = $context['participants_label'];
+            $goal_label         = $context['goal_label'];
+            $progress           = $context['progress'];
+            $formatted_draw_date= $context['formatted_draw_date'];
+            $permalink          = $context['permalink'];
+            $title              = $context['title'];
 
             ob_start();
             ?>
@@ -932,7 +990,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                         <?php endif; ?>
                         <span class="lm-lottery-card__gradient" aria-hidden="true"></span>
                         <div class="lm-lottery-card__info">
-                            <h3 class="lm-lottery-card__title"><?php echo esc_html( get_the_title( $post_id ) ); ?></h3>
+                            <h3 class="lm-lottery-card__title"><?php echo esc_html( $title ); ?></h3>
                             <?php if ( $lot_value_label ) : ?>
                                 <div class="lm-lottery-card__value"><?php echo esc_html( $lot_value_label ); ?></div>
                             <?php endif; ?>
@@ -993,6 +1051,83 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                     </div>
                 </div>
             </article>
+            <?php
+
+            return (string) ob_get_clean();
+        }
+
+        /**
+         * Renders a textual loterie summary via shortcode.
+         *
+         * @param array $atts Shortcode attributes.
+         *
+         * @return string
+         */
+        public function render_loterie_summary_shortcode( $atts ) {
+            $atts = shortcode_atts(
+                array(
+                    'id' => get_the_ID(),
+                ),
+                $atts
+            );
+
+            $context = $this->get_loterie_display_context( $atts['id'] );
+            if ( empty( $context ) ) {
+                return '';
+            }
+
+            $post_id            = $context['post_id'];
+            $title              = $context['title'];
+            $status_label       = $context['status_label'];
+            $status_class       = $context['status_class'];
+            $lot_value_label    = $context['lot_value_label'];
+            $formatted_draw_date= $context['formatted_draw_date'];
+            $countdown_boxes    = $context['countdown_boxes'];
+            $participants_label = $context['participants_label'];
+            $goal_label         = $context['goal_label'];
+            $tickets_label      = $context['tickets_label'];
+            $progress           = $context['progress'];
+
+            ob_start();
+            ?>
+            <section class="lm-loterie-summary" data-loterie-id="<?php echo esc_attr( $post_id ); ?>">
+                <header class="lm-loterie-summary__header">
+                    <h3 class="lm-loterie-summary__title"><?php echo esc_html( $title ); ?></h3>
+                    <span class="lm-loterie-summary__status <?php echo esc_attr( $status_class ); ?>"><?php echo esc_html( $status_label ); ?></span>
+                </header>
+
+                <?php if ( $lot_value_label ) : ?>
+                    <p class="lm-loterie-summary__prize"><?php echo esc_html( $lot_value_label ); ?></p>
+                <?php endif; ?>
+
+                <?php if ( $formatted_draw_date ) : ?>
+                    <p class="lm-loterie-summary__date"><?php echo esc_html( $formatted_draw_date ); ?></p>
+                <?php endif; ?>
+
+                <?php if ( ! empty( $countdown_boxes ) ) : ?>
+                    <div class="lm-loterie-summary__countdown" role="status" aria-live="polite">
+                        <?php foreach ( $countdown_boxes as $box ) : ?>
+                            <div class="lm-loterie-summary__countdown-box">
+                                <div class="lm-loterie-summary__countdown-value"><?php echo esc_html( $box['value'] ); ?></div>
+                                <div class="lm-loterie-summary__countdown-label"><?php echo esc_html( $box['label'] ); ?></div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+
+                <div class="lm-loterie-summary__meta">
+                    <span class="lm-loterie-summary__participants"><?php echo esc_html( $participants_label ); ?></span>
+                    <?php if ( $goal_label ) : ?>
+                        <span class="lm-loterie-summary__goal"><?php echo esc_html( $goal_label ); ?></span>
+                    <?php endif; ?>
+                </div>
+
+                <p class="lm-loterie-summary__tickets"><?php echo esc_html( $tickets_label ); ?></p>
+
+                <div class="lm-loterie-summary__progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?php echo esc_attr( $progress ); ?>">
+                    <span class="lm-loterie-summary__bar" style="width: <?php echo esc_attr( $progress ); ?>%;"></span>
+                </div>
+            </section>
             <?php
 
             return (string) ob_get_clean();
