@@ -22,6 +22,12 @@ Le plugin **Loterie Manager** ajoute une couche de gestion de loteries aux sites
 
 Utilisez `[lm_loterie id="123"]` pour afficher un résumé d'une loterie spécifique (remplacez `123` par l’ID de l’article). Sans paramètre `id`, le shortcode utilisera l’article courant dans la boucle.
 
+Le shortcode `[lm_loterie_summary id="123"]` affiche désormais un bandeau coloré indiquant le jour écoulé depuis le lancement, le nombre d’articles encore disponibles et l’objectif total. Parfait pour insérer un rappel visuel percutant dans la description d’un produit.
+
+> ℹ️ **Comment est calculé le « Jour » ?**
+>
+> Le badge « Jour X » correspond désormais au nombre de jours écoulés depuis la publication de l’article-loterie. Le plugin récupère la date de création de l’article, calcule la différence avec l’heure actuelle (`current_time('timestamp')`), puis ajoute 1 pour afficher « Jour 1 » le jour du lancement, « Jour 2 » le lendemain, etc. Pour remettre le compteur à zéro, modifiez la date de publication de l’article (onglet **Publier** → lien **Modifier** à côté de la date) puis enregistrez : le bandeau reflètera immédiatement cette nouvelle date de départ.
+
 ## Configuration des produits WooCommerce
 
 1. Ouvrez un produit dans WooCommerce.
