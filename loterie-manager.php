@@ -1077,56 +1077,57 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             }
 
             $post_id            = $context['post_id'];
-            $title              = $context['title'];
-            $status_label       = $context['status_label'];
-            $status_class       = $context['status_class'];
-            $lot_value_label    = $context['lot_value_label'];
-            $formatted_draw_date= $context['formatted_draw_date'];
+            $capacity           = $context['capacity'];
+            $sold               = $context['sold'];
             $countdown_boxes    = $context['countdown_boxes'];
-            $participants_label = $context['participants_label'];
-            $goal_label         = $context['goal_label'];
-            $tickets_label      = $context['tickets_label'];
-            $progress           = $context['progress'];
+
+            $day_text = '';
+            if ( ! empty( $countdown_boxes ) && isset( $countdown_boxes[0]['value'] ) ) {
+                $day_value = absint( $countdown_boxes[0]['value'] );
+                $day_text  = sprintf( __( 'Jour %s', 'loterie-manager' ), number_format_i18n( $day_value ) );
+            }
+
+            $goal_text = '';
+            $remaining_number = '';
+            $remaining_label  = '';
+            $remaining_text   = '';
+            if ( $capacity > 0 ) {
+                $remaining_count = max( 0, $capacity - $sold );
+                $remaining_label = _n( 'article restant', 'articles restants', $remaining_count, 'loterie-manager' );
+                $remaining_number = number_format_i18n( $remaining_count );
+                $goal_text = sprintf(
+                    __( 'sur %s', 'loterie-manager' ),
+                    number_format_i18n( $capacity )
+                );
+            } else {
+                $remaining_text = $context['tickets_label'];
+            }
 
             ob_start();
             ?>
-            <section class="lm-loterie-summary" data-loterie-id="<?php echo esc_attr( $post_id ); ?>">
-                <header class="lm-loterie-summary__header">
-                    <h3 class="lm-loterie-summary__title"><?php echo esc_html( $title ); ?></h3>
-                    <span class="lm-loterie-summary__status <?php echo esc_attr( $status_class ); ?>"><?php echo esc_html( $status_label ); ?></span>
-                </header>
-
-                <?php if ( $lot_value_label ) : ?>
-                    <p class="lm-loterie-summary__prize"><?php echo esc_html( $lot_value_label ); ?></p>
+            <section class="lm-loterie-banner" data-loterie-id="<?php echo esc_attr( $post_id ); ?>">
+                <?php if ( $day_text ) : ?>
+                    <span class="lm-loterie-banner__day"><?php echo esc_html( $day_text ); ?></span>
                 <?php endif; ?>
 
-                <?php if ( $formatted_draw_date ) : ?>
-                    <p class="lm-loterie-summary__date"><?php echo esc_html( $formatted_draw_date ); ?></p>
+                <?php if ( $day_text && ( $remaining_number || $remaining_text ) ) : ?>
+                    <span class="lm-loterie-banner__separator" aria-hidden="true">:</span>
                 <?php endif; ?>
 
-                <?php if ( ! empty( $countdown_boxes ) ) : ?>
-                    <div class="lm-loterie-summary__countdown" role="status" aria-live="polite">
-                        <?php foreach ( $countdown_boxes as $box ) : ?>
-                            <div class="lm-loterie-summary__countdown-box">
-                                <div class="lm-loterie-summary__countdown-value"><?php echo esc_html( $box['value'] ); ?></div>
-                                <div class="lm-loterie-summary__countdown-label"><?php echo esc_html( $box['label'] ); ?></div>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
+                <?php if ( $remaining_number ) : ?>
+                    <span class="lm-loterie-banner__remaining">
+                        <span class="lm-loterie-banner__remaining-number"><?php echo esc_html( $remaining_number ); ?></span>
+                        <?php if ( $remaining_label ) : ?>
+                            <span class="lm-loterie-banner__remaining-label"><?php echo esc_html( $remaining_label ); ?></span>
+                        <?php endif; ?>
+                    </span>
+                <?php elseif ( $remaining_text ) : ?>
+                    <span class="lm-loterie-banner__remaining"><?php echo esc_html( $remaining_text ); ?></span>
                 <?php endif; ?>
 
-                <div class="lm-loterie-summary__meta">
-                    <span class="lm-loterie-summary__participants"><?php echo esc_html( $participants_label ); ?></span>
-                    <?php if ( $goal_label ) : ?>
-                        <span class="lm-loterie-summary__goal"><?php echo esc_html( $goal_label ); ?></span>
-                    <?php endif; ?>
-                </div>
-
-                <p class="lm-loterie-summary__tickets"><?php echo esc_html( $tickets_label ); ?></p>
-
-                <div class="lm-loterie-summary__progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?php echo esc_attr( $progress ); ?>">
-                    <span class="lm-loterie-summary__bar" style="width: <?php echo esc_attr( $progress ); ?>%;"></span>
-                </div>
+                <?php if ( $goal_text ) : ?>
+                    <span class="lm-loterie-banner__goal"><?php echo esc_html( $goal_text ); ?></span>
+                <?php endif; ?>
             </section>
             <?php
 

@@ -22,7 +22,8 @@ Le plugin **Loterie Manager** ajoute une couche de gestion de loteries aux sites
 
 Utilisez `[lm_loterie id="123"]` pour afficher un résumé d'une loterie spécifique (remplacez `123` par l’ID de l’article). Sans paramètre `id`, le shortcode utilisera l’article courant dans la boucle.
 
-Le shortcode `[lm_loterie_summary id="123"]` affiche une version textuelle compacte : titre, statut, date de tirage, compte à rebours, nombre de participants ainsi qu’une barre de progression vers l’objectif final. Idéal pour enrichir la description d’un produit sans charger d’images.
+Le shortcode `[lm_loterie_summary id="123"]` affiche désormais un bandeau coloré indiquant le jour restant, le nombre d’articles encore disponibles et l’objectif total. Parfait pour insérer un rappel visuel percutant dans la description d’un produit.
+
 
 ## Configuration des produits WooCommerce
 
