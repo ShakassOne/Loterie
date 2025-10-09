@@ -110,6 +110,11 @@
             return true;
         }
 
+        if (lotteries.length === 1) {
+            $form.find('.lm-lottery-selection').val(lotteries[0].id);
+            return true;
+        }
+
         event.preventDefault();
         var ticketLimit = parseTicketLimit(dataContainer.attr('data-ticket-limit'));
 
