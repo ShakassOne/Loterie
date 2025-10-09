@@ -45,7 +45,25 @@ Le shortcode `[lm_loterie_summary id="123"]` affiche désormais un bandeau color
 
 ## Réaffectation des tickets
 
-Depuis l’onglet « Mes tickets », le client sélectionne une nouvelle loterie dans le menu déroulant puis clique sur **Réaffecter**. Les métadonnées de commande sont mises à jour et les compteurs de tickets de chaque loterie sont ajustés en conséquence.
+Depuis l’onglet « Mes tickets », le client sélectionne une nouvelle loterie dans le menu déroulant puis clique sur **Réaffecter**. Les métadonnées de commande sont mises à jour et les compteurs de tickets de chaque loterie sont ajustés en conséquence. Si l’administrateur a désactivé la réaffectation (globalement ou localement), un message clair est affiché et le ticket reste verrouillé.
+
+## Tableau de bord d’administration
+
+Le menu **WinShirt › Loteries** regroupe désormais les outils nécessaires au pilotage :
+
+- **Tableau de bord global** avec progression, chiffre d’affaires associé, alertes et accès direct aux fiches détaillées.
+- **Fiche loterie** avec KPIs, liste filtrable des tickets/participants, journal des actions, export officiel pour l’huissier, réglage local de la réaffectation et tirage manuel encadré.
+- **Paramètres** pour ajuster la pagination, les statuts de commande exclus du tirage et activer/désactiver la réaffectation automatique.
+
+Chaque action sensible (export, tirage, modification des réglages de réaffectation) est historisée dans un journal consultable depuis la fiche loterie.
+
+## Tirage manuel traçable
+
+Lorsque les critères sont remplis (tickets valides disponibles et loterie prête), un tirage manuel peut être lancé. L’interface impose la saisie d’un aléa public, offre la génération d’un rapport horodaté et verrouille automatiquement les tickets gagnants/suppléants. Le rapport JSON (checksum inclus) est téléchargeable pour constituer un dossier légal.
+
+## Historique des versions
+
+- **1.4.0** : ajout du tableau de bord d’administration, du journal des actions, de l’export officiel et du tirage manuel ; amélioration de l’espace client avec filtres et statuts explicites.
 
 ## Assets & Traductions
 

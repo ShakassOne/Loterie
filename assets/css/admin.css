@@ -1,0 +1,176 @@
+.lm-admin-wrap {
+    max-width: 1100px;
+}
+
+.lm-admin-toggle {
+    margin: 20px 0;
+    padding: 16px;
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+}
+
+.lm-admin-toggle .lm-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+}
+
+.lm-dashboard-table .lm-progress {
+    background: #f0f0f1;
+    border-radius: 999px;
+    overflow: hidden;
+    height: 8px;
+    margin-bottom: 4px;
+}
+
+.lm-dashboard-table .lm-progress span {
+    display: block;
+    height: 100%;
+    background: #2c9c5d;
+}
+
+.lm-status {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.lm-status.is-active,
+.lm-status.active { background: #e0f6ec; color: #1a7f4a; }
+.lm-status.is-ended,
+.lm-status.invalid { background: #fce8e8; color: #b81c23; }
+.lm-status.is-complete,
+.lm-status.winner { background: #fef7e5; color: #8c5a00; }
+.lm-status.is-draft { background: #e7ecf7; color: #1b4d91; }
+.lm-status.alternate { background: #f5f0ff; color: #5c3fa3; }
+
+.lm-lottery-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.lm-lottery-card {
+    flex: 1 1 320px;
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.lm-kpi-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+}
+
+.lm-kpi-list li {
+    background: #f6f7f7;
+    padding: 12px;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.lm-kpi-list strong {
+    font-size: 13px;
+    text-transform: uppercase;
+    color: #50575e;
+}
+
+.lm-lottery-actions {
+    flex: 1 1 280px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.lm-inline-form {
+    background: #fff;
+    padding: 16px;
+    border: 1px solid #ccd0d4;
+    border-radius: 6px;
+}
+
+.lm-inline-form label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.lm-inline-form select,
+.lm-inline-form input[type="text"],
+.lm-inline-form input[type="number"] {
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+.lm-manual-draw {
+    background: #fff7ed;
+    padding: 16px;
+    border: 1px solid #f2c491;
+    border-radius: 6px;
+}
+
+.lm-admin-filters {
+    display: flex;
+    gap: 8px;
+    margin: 20px 0;
+}
+
+.lm-admin-filters input[type="search"],
+.lm-admin-filters select {
+    min-width: 200px;
+}
+
+.lm-admin-table td {
+    vertical-align: top;
+}
+
+.lm-ticket-row--status-invalid { background: #fff6f6; }
+.lm-ticket-row--status-winner { background: #fffbea; }
+.lm-ticket-row--status-alternate { background: #f8f5ff; }
+
+.lm-draw-reports {
+    list-style: disc inside;
+}
+
+.lm-settings-form .lm-status-checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.lm-ticket-alert {
+    margin-top: 12px;
+}
+
+.lm-ticket-table--extended .lm-ticket-status {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.lm-ticket-table--extended .lm-ticket-note {
+    font-size: 12px;
+    color: #50575e;
+}
+
+.lm-ticket-legend {
+    margin-top: 16px;
+    font-style: italic;
+    color: #646970;
+}
