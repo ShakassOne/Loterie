@@ -3,7 +3,7 @@
 Plugin Name: WinShirt Loterie Manager
 Plugin URI: https://github.com/ShakassOne/loterie-winshirt
 Description: Gestion des loteries pour WooCommerce.
-Version: 1.3.2
+Version: 1.3.3
 Author: Shakass Communication
 Author URI: https://shakass.com
 Text Domain: loterie-winshirt
@@ -268,10 +268,16 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             $selection     = array_filter( array_map( 'absint', explode( ',', $selection_raw ) ) );
 
             if ( empty( $selection ) ) {
-                if ( function_exists( 'wc_add_notice' ) ) {
-                    wc_add_notice( __( 'Veuillez sélectionner au moins une loterie.', 'loterie-manager' ), 'error' );
+                if ( 1 === count( $targets ) ) {
+                    $single_target = absint( reset( $targets ) );
+                    $selection     = array( $single_target );
+                    $_POST['lm_lottery_selection'] = (string) $single_target;
+                } else {
+                    if ( function_exists( 'wc_add_notice' ) ) {
+                        wc_add_notice( __( 'Veuillez sélectionner au moins une loterie.', 'loterie-manager' ), 'error' );
+                    }
+                    return false;
                 }
-                return false;
             }
 
             $ticket_limit = intval( get_post_meta( $product_id, self::META_PRODUCT_TICKET_ALLOCATION, true ) );
