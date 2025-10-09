@@ -3,7 +3,7 @@
 Plugin Name: WinShirt Loterie Manager
 Plugin URI: https://github.com/ShakassOne/loterie-winshirt
 Description: Gestion des loteries pour WooCommerce.
-Version: 1.4.0
+Version: 1.5.0
 Author: Shakass Communication
 Author URI: https://shakass.com
 Text Domain: loterie-winshirt
@@ -2347,7 +2347,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 'loterie-manager-admin',
                 plugins_url( 'assets/css/admin.css', __FILE__ ),
                 array(),
-                '1.0.0'
+                '1.5.0'
             );
         }
 
@@ -2365,9 +2365,9 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 return;
             }
 
-            $settings              = $this->get_settings();
-            $reassignment_enabled  = $this->is_reassignment_enabled();
-            $posts                 = get_posts(
+            $settings             = $this->get_settings();
+            $reassignment_enabled = $this->is_reassignment_enabled();
+            $posts                = get_posts(
                 array(
                     'post_type'      => 'post',
                     'posts_per_page' => -1,
@@ -2377,74 +2377,413 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 )
             );
 
-            echo '<div class="wrap lm-admin-wrap">';
-            echo '<h1 class="wp-heading-inline">' . esc_html__( 'WinShirt · Loteries', 'loterie-manager' ) . '</h1>';
+            $search_global = isset( $_GET['lm_search_global'] ) ? sanitize_text_field( wp_unslash( $_GET['lm_search_global'] ) ) : '';
+            $status_filter = isset( $_GET['lm_status_filter'] ) ? sanitize_key( wp_unslash( $_GET['lm_status_filter'] ) ) : '';
+            $period_filter = isset( $_GET['lm_period_filter'] ) ? sanitize_key( wp_unslash( $_GET['lm_period_filter'] ) ) : '';
+            $export_target = isset( $_GET['lm_export'] ) ? absint( $_GET['lm_export'] ) : 0;
 
-            echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="lm-admin-toggle">';
-            wp_nonce_field( 'lm_toggle_reassignment', 'lm_toggle_reassignment_nonce' );
-            echo '<input type="hidden" name="action" value="lm_toggle_reassignment" />';
-            echo '<label class="lm-toggle">';
-            echo '<input type="checkbox" name="lm_reassignment" value="1"' . checked( $reassignment_enabled, true, false ) . ' />';
-            echo '<span>' . esc_html__( 'Réaffectation automatique des tickets : ON/OFF', 'loterie-manager' ) . '</span>';
-            echo '</label>';
-            echo '<button type="submit" class="button button-primary">' . esc_html__( 'Mettre à jour', 'loterie-manager' ) . '</button>';
-            echo '</form>';
+            $current_user = wp_get_current_user();
+            $now          = current_time( 'timestamp' );
 
-            if ( empty( $posts ) ) {
-                echo '<div class="notice notice-info"><p>' . esc_html__( 'Aucune loterie publiée pour le moment.', 'loterie-manager' ) . '</p></div>';
-                echo '</div>';
-                return;
-            }
-
-            echo '<table class="widefat fixed striped lm-dashboard-table">';
-            echo '<thead><tr>';
-            echo '<th>' . esc_html__( 'Loterie', 'loterie-manager' ) . '</th>';
-            echo '<th>' . esc_html__( 'Période', 'loterie-manager' ) . '</th>';
-            echo '<th>' . esc_html__( 'Progression', 'loterie-manager' ) . '</th>';
-            echo '<th>' . esc_html__( 'Statut', 'loterie-manager' ) . '</th>';
-            echo '<th>' . esc_html__( 'Tickets valides', 'loterie-manager' ) . '</th>';
-            echo '<th>' . esc_html__( 'Participants', 'loterie-manager' ) . '</th>';
-            echo '<th>' . esc_html__( 'Chiffre d’affaires', 'loterie-manager' ) . '</th>';
-            echo '<th>' . esc_html__( 'Conversion billets', 'loterie-manager' ) . '</th>';
-            echo '<th>' . esc_html__( 'Alertes', 'loterie-manager' ) . '</th>';
-            echo '</tr></thead><tbody>';
-
+            $lotteries = array();
             foreach ( $posts as $post ) {
-                $stats    = $this->get_lottery_stats( $post->ID );
-                $start    = $post->post_date ? strtotime( $post->post_date ) : 0;
-                $period   = $start ? date_i18n( get_option( 'date_format' ), $start ) : __( 'Non défini', 'loterie-manager' );
-                $end      = ! empty( $stats['end_date'] ) ? strtotime( $stats['end_date'] ) : 0;
-                if ( $end ) {
-                    $period .= ' → ' . date_i18n( get_option( 'date_format' ), $end );
-                }
-
-                $alerts = ! empty( $stats['alerts'] ) ? implode( '<br />', array_map( 'esc_html', $stats['alerts'] ) ) : '—';
-                $detail_url = add_query_arg(
+                $stats = $this->get_lottery_stats(
+                    $post->ID,
                     array(
-                        'page'    => 'winshirt-lotteries',
-                        'loterie' => $post->ID,
-                    ),
-                    admin_url( 'admin.php' )
+                        'include_tickets' => true,
+                        'per_page'        => -1,
+                    )
                 );
 
-                echo '<tr>';
-                echo '<td><a href="' . esc_url( $detail_url ) . '"><strong>' . esc_html( get_the_title( $post ) ) . '</strong></a></td>';
-                echo '<td>' . esc_html( $period ) . '</td>';
-                echo '<td><div class="lm-progress"><span style="width:' . esc_attr( $stats['progress'] ) . '%"></span></div><small>' . esc_html( $stats['progress'] ) . '%</small></td>';
-                echo '<td><span class="lm-status ' . esc_attr( $stats['status_class'] ) . '">' . esc_html( $stats['status_label'] ) . '</span></td>';
-                echo '<td>' . esc_html( sprintf( '%1$d / %2$s', intval( $stats['valid_tickets'] ), $stats['capacity'] > 0 ? intval( $stats['capacity'] ) : '∞' ) ) . '</td>';
-                echo '<td>' . esc_html( intval( $stats['unique_participants'] ) ) . '</td>';
-                echo '<td>' . esc_html( $this->format_currency( $stats['revenue'] ) ) . '</td>';
-                echo '<td>' . esc_html( $stats['conversion_rate'] ) . '%</td>';
-                echo '<td>' . ( $alerts ? $alerts : '—' ) . '</td>';
-                echo '</tr>';
+                $start_time = $post->post_date ? strtotime( $post->post_date ) : 0;
+                $end_time   = ! empty( $stats['end_date'] ) ? strtotime( $stats['end_date'] ) : 0;
+                $period     = $start_time ? date_i18n( get_option( 'date_format' ), $start_time ) : __( 'Non défini', 'loterie-manager' );
+                if ( $end_time ) {
+                    $period .= ' → ' . date_i18n( get_option( 'date_format' ), $end_time );
+                }
+
+                $lotteries[] = array(
+                    'id'              => $post->ID,
+                    'title'           => get_the_title( $post ),
+                    'status_code'     => $stats['status_code'],
+                    'status_label'    => $stats['status_label'],
+                    'status_class'    => $stats['status_class'],
+                    'period'          => $period,
+                    'start_time'      => $start_time,
+                    'end_time'        => $end_time,
+                    'progress'        => $stats['progress'],
+                    'valid_tickets'   => $stats['valid_tickets'],
+                    'capacity'        => $stats['capacity'],
+                    'participants'    => $stats['unique_participants'],
+                    'revenue'         => $stats['revenue'],
+                    'conversion_rate' => $stats['conversion_rate'],
+                    'alerts'          => $stats['alerts'],
+                    'ready_for_draw'  => $stats['ready_for_draw'],
+                    'tickets_all'     => isset( $stats['tickets_all'] ) ? $stats['tickets_all'] : array(),
+                );
             }
 
-            echo '</tbody></table>';
+            $filtered_lotteries = array_filter(
+                $lotteries,
+                static function ( $entry ) use ( $search_global, $status_filter, $period_filter, $now ) {
+                    if ( '' !== $search_global && false === stripos( $entry['title'], $search_global ) ) {
+                        return false;
+                    }
 
-            echo '</div>';
+                    if ( '' !== $status_filter && $status_filter !== $entry['status_code'] ) {
+                        return false;
+                    }
+
+                    if ( '' !== $period_filter ) {
+                        if ( 'closing' === $period_filter ) {
+                            if ( empty( $entry['end_time'] ) || $entry['end_time'] < $now || ( $entry['end_time'] - $now ) > 7 * DAY_IN_SECONDS ) {
+                                return false;
+                            }
+                        } elseif ( 'upcoming' === $period_filter ) {
+                            if ( empty( $entry['start_time'] ) || $entry['start_time'] <= $now ) {
+                                return false;
+                            }
+                        } elseif ( 'past' === $period_filter ) {
+                            if ( empty( $entry['end_time'] ) || $entry['end_time'] >= $now ) {
+                                return false;
+                            }
+                        }
+                    }
+
+                    return true;
+                }
+            );
+
+            $filtered_lotteries = array_values( $filtered_lotteries );
+
+            $totals = array(
+                'active'        => 0,
+                'valid'         => 0,
+                'capacity'      => 0,
+                'revenue'       => 0.0,
+                'conversion'    => 0.0,
+                'conversion_nb' => 0,
+                'closing'       => 0,
+                'alerts'        => 0,
+            );
+
+            $timeline = array();
+
+            foreach ( $filtered_lotteries as $entry ) {
+                if ( 'active' === $entry['status_code'] ) {
+                    $totals['active']++;
+                }
+
+                $totals['valid']    += intval( $entry['valid_tickets'] );
+                $totals['capacity'] += intval( $entry['capacity'] );
+                $totals['revenue']  += floatval( $entry['revenue'] );
+
+                if ( $entry['conversion_rate'] > 0 ) {
+                    $totals['conversion']    += floatval( $entry['conversion_rate'] );
+                    $totals['conversion_nb'] ++;
+                }
+
+                if ( ! empty( $entry['end_time'] ) && $entry['end_time'] >= $now && ( $entry['end_time'] - $now ) <= 7 * DAY_IN_SECONDS ) {
+                    $totals['closing']++;
+                }
+
+                $totals['alerts'] += count( $entry['alerts'] );
+
+                foreach ( $entry['tickets_all'] as $ticket ) {
+                    if ( empty( $ticket['order_date'] ) ) {
+                        continue;
+                    }
+
+                    $day = gmdate( 'Y-m-d', intval( $ticket['order_date'] ) );
+                    if ( ! isset( $timeline[ $day ] ) ) {
+                        $timeline[ $day ] = 0;
+                    }
+
+                    $timeline[ $day ]++;
+                }
+            }
+
+            ksort( $timeline );
+
+            $timeline_limit = 12;
+            if ( count( $timeline ) > $timeline_limit ) {
+                $timeline = array_slice( $timeline, -1 * $timeline_limit, null, true );
+            }
+
+            $avg_conversion = $totals['conversion_nb'] > 0 ? round( $totals['conversion'] / $totals['conversion_nb'], 1 ) : 0;
+
+            $export_context = null;
+            if ( $export_target ) {
+                foreach ( $lotteries as $entry ) {
+                    if ( intval( $entry['id'] ) === $export_target ) {
+                        $export_context = $entry;
+                        break;
+                    }
+                }
+            }
+
+            ob_start();
+            ?>
+            <div class="lm-app lm-app--dark">
+                <aside class="lm-sidebar">
+                    <div class="lm-sidebar__brand">WinShirt</div>
+                    <nav class="lm-sidebar__nav">
+                        <a class="lm-sidebar__item is-active" href="<?php echo esc_url( admin_url( 'admin.php?page=winshirt-lotteries' ) ); ?>">
+                            <span class="dashicons dashicons-tickets"></span>
+                            <span><?php esc_html_e( 'Loteries', 'loterie-manager' ); ?></span>
+                        </a>
+                        <a class="lm-sidebar__item" href="<?php echo esc_url( admin_url( 'admin.php?page=winshirt-lotteries-settings' ) ); ?>">
+                            <span class="dashicons dashicons-admin-generic"></span>
+                            <span><?php esc_html_e( 'Paramètres', 'loterie-manager' ); ?></span>
+                        </a>
+                    </nav>
+                </aside>
+                <main class="lm-main">
+                    <header class="lm-topbar">
+                        <div class="lm-topbar__titles">
+                            <h1><?php esc_html_e( 'Loteries', 'loterie-manager' ); ?></h1>
+                            <p><?php esc_html_e( 'Pilotez vos opérations en un clin d’œil.', 'loterie-manager' ); ?></p>
+                        </div>
+                        <div class="lm-topbar__tools">
+                            <form class="lm-topbar__filters" method="get">
+                                <input type="hidden" name="page" value="winshirt-lotteries" />
+                                <label class="lm-field lm-field--search">
+                                    <span class="dashicons dashicons-search"></span>
+                                    <input type="search" name="lm_search_global" value="<?php echo esc_attr( $search_global ); ?>" placeholder="<?php esc_attr_e( 'Rechercher une loterie…', 'loterie-manager' ); ?>" />
+                                </label>
+                                <label class="lm-field">
+                                    <span class="screen-reader-text"><?php esc_html_e( 'Filtrer par statut', 'loterie-manager' ); ?></span>
+                                    <select name="lm_status_filter">
+                                        <option value=""><?php esc_html_e( 'Tous les statuts', 'loterie-manager' ); ?></option>
+                                        <option value="active" <?php selected( 'active', $status_filter ); ?>><?php esc_html_e( 'En cours', 'loterie-manager' ); ?></option>
+                                        <option value="complete" <?php selected( 'complete', $status_filter ); ?>><?php esc_html_e( 'Objectif atteint', 'loterie-manager' ); ?></option>
+                                        <option value="closed" <?php selected( 'closed', $status_filter ); ?>><?php esc_html_e( 'Clôturée', 'loterie-manager' ); ?></option>
+                                        <option value="draft" <?php selected( 'draft', $status_filter ); ?>><?php esc_html_e( 'Brouillon', 'loterie-manager' ); ?></option>
+                                    </select>
+                                </label>
+                                <label class="lm-field">
+                                    <span class="screen-reader-text"><?php esc_html_e( 'Filtrer par période', 'loterie-manager' ); ?></span>
+                                    <select name="lm_period_filter">
+                                        <option value=""><?php esc_html_e( 'Toutes les périodes', 'loterie-manager' ); ?></option>
+                                        <option value="closing" <?php selected( 'closing', $period_filter ); ?>><?php esc_html_e( 'Se termine bientôt', 'loterie-manager' ); ?></option>
+                                        <option value="upcoming" <?php selected( 'upcoming', $period_filter ); ?>><?php esc_html_e( 'À venir', 'loterie-manager' ); ?></option>
+                                        <option value="past" <?php selected( 'past', $period_filter ); ?>><?php esc_html_e( 'Clôturées', 'loterie-manager' ); ?></option>
+                                    </select>
+                                </label>
+                                <button type="submit" class="button button-primary"><?php esc_html_e( 'Filtrer', 'loterie-manager' ); ?></button>
+                            </form>
+                            <div class="lm-topbar__avatar">
+                                <?php echo get_avatar( $current_user ? $current_user->ID : 0, 40 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+                            </div>
+                        </div>
+                    </header>
+
+                    <section class="lm-card lm-card--glass lm-toggle-card">
+                        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                            <?php wp_nonce_field( 'lm_toggle_reassignment', 'lm_toggle_reassignment_nonce' ); ?>
+                            <input type="hidden" name="action" value="lm_toggle_reassignment" />
+                            <div class="lm-toggle-card__header">
+                                <span class="lm-toggle-card__label"><?php esc_html_e( 'Réaffectation automatique des tickets', 'loterie-manager' ); ?></span>
+                                <label class="lm-switch">
+                                    <input type="checkbox" name="lm_reassignment" value="1" <?php checked( $reassignment_enabled, true ); ?> />
+                                    <span class="lm-switch__track"></span>
+                                </label>
+                            </div>
+                            <p class="lm-toggle-card__help"><?php esc_html_e( 'Si activée, les tickets liés à des commandes annulées ou remboursées cessent automatiquement d’être valides.', 'loterie-manager' ); ?></p>
+                            <button type="submit" class="button button-primary">
+                                <?php esc_html_e( 'Mettre à jour', 'loterie-manager' ); ?>
+                            </button>
+                        </form>
+                    </section>
+
+                    <section class="lm-kpi-grid">
+                        <article class="lm-kpi">
+                            <h3><?php esc_html_e( 'Loteries actives', 'loterie-manager' ); ?></h3>
+                            <p><?php echo esc_html( number_format_i18n( $totals['active'] ) ); ?></p>
+                        </article>
+                        <article class="lm-kpi">
+                            <h3><?php esc_html_e( 'Tickets valides totaux', 'loterie-manager' ); ?></h3>
+                            <p><?php echo esc_html( number_format_i18n( $totals['valid'] ) ); ?></p>
+                            <?php if ( $totals['capacity'] > 0 ) : ?>
+                                <span class="lm-kpi__meta"><?php printf( esc_html__( '%1$s sur %2$s objectifs', 'loterie-manager' ), esc_html( number_format_i18n( $totals['valid'] ) ), esc_html( number_format_i18n( $totals['capacity'] ) ) ); ?></span>
+                            <?php endif; ?>
+                        </article>
+                        <article class="lm-kpi">
+                            <h3><?php esc_html_e( 'CA cumulé', 'loterie-manager' ); ?></h3>
+                            <p><?php echo esc_html( $this->format_currency( $totals['revenue'] ) ); ?></p>
+                        </article>
+                        <article class="lm-kpi">
+                            <h3><?php esc_html_e( 'Taux de conversion billets', 'loterie-manager' ); ?></h3>
+                            <p><?php echo esc_html( $avg_conversion ); ?><span>%</span></p>
+                        </article>
+                        <article class="lm-kpi">
+                            <h3><?php esc_html_e( 'Loteries proches de la fin', 'loterie-manager' ); ?></h3>
+                            <p><?php echo esc_html( number_format_i18n( $totals['closing'] ) ); ?></p>
+                        </article>
+                        <article class="lm-kpi">
+                            <h3><?php esc_html_e( 'Alertes', 'loterie-manager' ); ?></h3>
+                            <p><?php echo esc_html( number_format_i18n( $totals['alerts'] ) ); ?></p>
+                        </article>
+                    </section>
+
+                    <section class="lm-card lm-card--glass">
+                        <header class="lm-card__header">
+                            <div>
+                                <h2><?php esc_html_e( 'Progression dans le temps', 'loterie-manager' ); ?></h2>
+                                <p><?php esc_html_e( 'Tickets vendus vs. objectif global.', 'loterie-manager' ); ?></p>
+                            </div>
+                        </header>
+                        <?php if ( empty( $timeline ) ) : ?>
+                            <div class="lm-empty">
+                                <span class="dashicons dashicons-chart-line"></span>
+                                <p><?php esc_html_e( 'Pas encore de données disponibles.', 'loterie-manager' ); ?></p>
+                            </div>
+                        <?php else :
+                            $max_value = max( $timeline );
+                            $max_value = $max_value > 0 ? $max_value : 1;
+                            ?>
+                            <div class="lm-chart">
+                                <?php foreach ( $timeline as $day => $count ) :
+                                    $height = max( 6, ( $count / $max_value ) * 100 );
+                                    ?>
+                                    <div class="lm-chart__bar" style="height: <?php echo esc_attr( $height ); ?>%">
+                                        <span class="lm-chart__tooltip">
+                                            <strong><?php echo esc_html( wp_date( get_option( 'date_format' ), strtotime( $day ) ) ); ?></strong>
+                                            <span><?php printf( esc_html__( '%d tickets', 'loterie-manager' ), $count ); ?></span>
+                                        </span>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </section>
+
+                    <section class="lm-lotteries">
+                        <header class="lm-card__header">
+                            <h2><?php esc_html_e( 'Liste des loteries', 'loterie-manager' ); ?></h2>
+                        </header>
+                        <?php if ( empty( $filtered_lotteries ) ) : ?>
+                            <div class="lm-empty">
+                                <span class="dashicons dashicons-megaphone"></span>
+                                <p><?php esc_html_e( 'Aucune loterie ne correspond à votre recherche.', 'loterie-manager' ); ?></p>
+                                <a class="button button-secondary" href="<?php echo esc_url( admin_url( 'post-new.php' ) ); ?>"><?php esc_html_e( 'Créer une loterie', 'loterie-manager' ); ?></a>
+                            </div>
+                        <?php else : ?>
+                            <div class="lm-lotteries__grid">
+                                <?php foreach ( $filtered_lotteries as $entry ) :
+                                    $detail_url  = add_query_arg(
+                                        array(
+                                            'page'    => 'winshirt-lotteries',
+                                            'loterie' => $entry['id'],
+                                        ),
+                                        admin_url( 'admin.php' )
+                                    );
+                                    $export_url  = add_query_arg(
+                                        array(
+                                            'page'      => 'winshirt-lotteries',
+                                            'lm_export' => $entry['id'],
+                                        ),
+                                        admin_url( 'admin.php' )
+                                    );
+                                    $draw_url    = add_query_arg(
+                                        array(
+                                            'page'          => 'winshirt-lotteries',
+                                            'loterie'       => $entry['id'],
+                                            'lm_draw_step'  => 'prepare',
+                                        ),
+                                        admin_url( 'admin.php' )
+                                    );
+                                    ?>
+                                    <article class="lm-lottery-card lm-card lm-card--glass">
+                                        <header class="lm-lottery-card__header">
+                                            <div>
+                                                <span class="lm-status <?php echo esc_attr( $entry['status_class'] ); ?>"><?php echo esc_html( $entry['status_label'] ); ?></span>
+                                                <h3><?php echo esc_html( $entry['title'] ); ?></h3>
+                                                <p><?php echo esc_html( $entry['period'] ); ?></p>
+                                            </div>
+                                            <div class="lm-lottery-card__progress">
+                                                <span><?php echo esc_html( $entry['progress'] ); ?>%</span>
+                                                <div class="lm-progress"><span style="width: <?php echo esc_attr( $entry['progress'] ); ?>%"></span></div>
+                                                <small><?php printf( esc_html__( '%1$d / %2$s tickets valides', 'loterie-manager' ), intval( $entry['valid_tickets'] ), $entry['capacity'] > 0 ? intval( $entry['capacity'] ) : 0 ); ?></small>
+                                            </div>
+                                        </header>
+                                        <ul class="lm-lottery-card__stats">
+                                            <li><span><?php esc_html_e( 'Participants uniques', 'loterie-manager' ); ?></span><strong><?php echo esc_html( number_format_i18n( $entry['participants'] ) ); ?></strong></li>
+                                            <li><span><?php esc_html_e( 'CA lié', 'loterie-manager' ); ?></span><strong><?php echo esc_html( $this->format_currency( $entry['revenue'] ) ); ?></strong></li>
+                                            <li><span><?php esc_html_e( 'Conversion billets', 'loterie-manager' ); ?></span><strong><?php echo esc_html( $entry['conversion_rate'] ); ?>%</strong></li>
+                                        </ul>
+                                        <div class="lm-lottery-card__actions">
+                                            <a class="button button-primary" href="<?php echo esc_url( $detail_url ); ?>"><?php esc_html_e( 'Ouvrir', 'loterie-manager' ); ?></a>
+                                            <a class="button" href="<?php echo esc_url( $export_url ); ?>"><?php esc_html_e( 'Exporter participants (Huissier)', 'loterie-manager' ); ?></a>
+                                            <?php if ( $entry['ready_for_draw'] ) : ?>
+                                                <a class="button button-secondary" href="<?php echo esc_url( $draw_url ); ?>"><?php esc_html_e( 'Tirage manuel', 'loterie-manager' ); ?></a>
+                                            <?php else : ?>
+                                                <span class="lm-action-disabled" title="<?php esc_attr_e( 'Disponible lorsque la loterie est prête.', 'loterie-manager' ); ?>"><?php esc_html_e( 'Tirage manuel indisponible', 'loterie-manager' ); ?></span>
+                                            <?php endif; ?>
+                                            <details class="lm-more-actions">
+                                                <summary><?php esc_html_e( 'Plus…', 'loterie-manager' ); ?></summary>
+                                                <div>
+                                                    <a href="<?php echo esc_url( get_edit_post_link( $entry['id'] ) ); ?>"><?php esc_html_e( 'Modifier', 'loterie-manager' ); ?></a>
+                                                    <a href="<?php echo esc_url( wp_nonce_url( admin_url( 'post.php?action=trash&post=' . $entry['id'] ), 'trash-post_' . $entry['id'] ) ); ?>"><?php esc_html_e( 'Archiver', 'loterie-manager' ); ?></a>
+                                                </div>
+                                            </details>
+                                        </div>
+                                        <?php if ( ! empty( $entry['alerts'] ) ) : ?>
+                                            <ul class="lm-lottery-card__alerts">
+                                                <?php foreach ( $entry['alerts'] as $alert ) : ?>
+                                                    <li><?php echo esc_html( $alert ); ?></li>
+                                                <?php endforeach; ?>
+                                            </ul>
+                                        <?php endif; ?>
+                                    </article>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </section>
+
+                    <?php if ( $export_context ) :
+                        $estimate = 0;
+                        foreach ( $export_context['tickets_all'] as $ticket ) {
+                            if ( in_array( $ticket['status'], array( 'valid', 'winner', 'alternate' ), true ) ) {
+                                $estimate++;
+                            }
+                        }
+                        ?>
+                        <div class="lm-modal is-open" role="dialog" aria-modal="true">
+                            <div class="lm-modal__dialog">
+                                <header class="lm-modal__header">
+                                    <h2><?php esc_html_e( 'Exporter participants (Huissier)', 'loterie-manager' ); ?></h2>
+                                    <a class="lm-modal__close" href="<?php echo esc_url( remove_query_arg( 'lm_export' ) ); ?>" aria-label="<?php esc_attr_e( 'Fermer', 'loterie-manager' ); ?>">&times;</a>
+                                </header>
+                                <div class="lm-modal__content">
+                                    <p><?php esc_html_e( 'Le fichier contient uniquement les tickets valides et leurs données nécessaires.', 'loterie-manager' ); ?></p>
+                                    <p class="lm-modal__meta"><?php printf( esc_html__( 'Estimé : %d lignes.', 'loterie-manager' ), $estimate ); ?></p>
+                                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="lm-modal__form">
+                                        <?php wp_nonce_field( 'lm_export_participants_' . $export_context['id'], 'lm_export_nonce' ); ?>
+                                        <input type="hidden" name="action" value="lm_export_participants" />
+                                        <input type="hidden" name="loterie_id" value="<?php echo esc_attr( $export_context['id'] ); ?>" />
+                                        <label>
+                                            <span><?php esc_html_e( 'Période (optionnelle)', 'loterie-manager' ); ?></span>
+                                            <div class="lm-modal__range">
+                                                <input type="date" name="lm_export_start" />
+                                                <span>→</span>
+                                                <input type="date" name="lm_export_end" />
+                                            </div>
+                                        </label>
+                                        <p class="lm-modal__hint"><?php esc_html_e( 'Chaque export est journalisé avec date, heure et opérateur.', 'loterie-manager' ); ?></p>
+                                        <div class="lm-modal__actions">
+                                            <button type="submit" class="button button-primary"><?php esc_html_e( 'Exporter (CSV)', 'loterie-manager' ); ?></button>
+                                            <a class="button" href="<?php echo esc_url( remove_query_arg( 'lm_export' ) ); ?>"><?php esc_html_e( 'Annuler', 'loterie-manager' ); ?></a>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                </main>
+            </div>
+            <?php
+            echo ob_get_clean();
         }
-
         /**
          * Renders the detail screen for a specific loterie.
          *
@@ -2461,6 +2800,37 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             $search        = isset( $_GET['lm_search'] ) ? sanitize_text_field( wp_unslash( $_GET['lm_search'] ) ) : '';
             $status_filter = isset( $_GET['lm_status'] ) ? sanitize_key( wp_unslash( $_GET['lm_status'] ) ) : '';
             $paged         = isset( $_GET['paged'] ) ? max( 1, absint( $_GET['paged'] ) ) : 1;
+            $draw_step     = isset( $_GET['lm_draw_step'] ) ? sanitize_key( wp_unslash( $_GET['lm_draw_step'] ) ) : '';
+
+            $flow_state = array(
+                'exclude_cancelled' => true,
+                'public_seed'       => '',
+                'confirmed'         => false,
+            );
+            $flow_summary = null;
+            $draw_errors  = array();
+
+            if ( 'prepare' === $draw_step && 'POST' === $_SERVER['REQUEST_METHOD'] && isset( $_POST['lm_draw_step'] ) && 'validate' === sanitize_key( wp_unslash( $_POST['lm_draw_step'] ) ) ) {
+                if ( empty( $_POST['lm_manual_draw_flow_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['lm_manual_draw_flow_nonce'] ) ), 'lm_manual_draw_flow_' . $loterie_id ) ) {
+                    $draw_errors[] = __( 'Jeton de sécurité invalide.', 'loterie-manager' );
+                } else {
+                    $flow_state['exclude_cancelled'] = ! empty( $_POST['lm_draw_exclude_cancelled'] );
+                    $flow_state['public_seed']       = isset( $_POST['lm_public_seed'] ) ? sanitize_text_field( wp_unslash( $_POST['lm_public_seed'] ) ) : '';
+                    $flow_state['confirmed']         = ! empty( $_POST['lm_draw_confirm_participants'] );
+
+                    if ( ! $flow_state['confirmed'] ) {
+                        $draw_errors[] = __( 'Veuillez confirmer la vérification de la liste des participants.', 'loterie-manager' );
+                    } else {
+                        $draw_step    = 'validate';
+                        $flow_summary = $this->prepare_manual_draw_pool(
+                            $loterie_id,
+                            array(
+                                'exclude_cancelled' => $flow_state['exclude_cancelled'],
+                            )
+                        );
+                    }
+                }
+            }
 
             $stats = $this->get_lottery_stats(
                 $loterie_id,
@@ -2474,202 +2844,490 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
 
             $tickets       = isset( $stats['tickets'] ) ? $stats['tickets'] : array();
             $logs          = $this->get_lottery_logs( $loterie_id );
-            $reports       = isset( $stats['manual_reports'] ) ? $stats['manual_reports'] : array();
+            $reports       = $this->get_manual_draw_reports( $loterie_id );
             $mode          = get_post_meta( $loterie_id, self::META_REASSIGNMENT_MODE, true );
             $mode          = in_array( $mode, array( 'inherit', 'enabled', 'disabled' ), true ) ? $mode : 'inherit';
             $redirect      = admin_url( 'admin.php?page=winshirt-lotteries&loterie=' . $loterie_id );
             $draw_success  = isset( $_GET['lm_draw_success'] );
             $report_id     = isset( $_GET['lm_report'] ) ? sanitize_text_field( wp_unslash( $_GET['lm_report'] ) ) : '';
+            $export_target = isset( $_GET['lm_export'] ) ? absint( $_GET['lm_export'] ) : 0;
 
-            echo '<div class="wrap lm-admin-wrap">';
-            echo '<h1 class="wp-heading-inline">' . esc_html( get_the_title( $post ) ) . '</h1>';
-            echo '<a class="page-title-action" href="' . esc_url( admin_url( 'admin.php?page=winshirt-lotteries' ) ) . '">' . esc_html__( 'Retour au tableau de bord', 'loterie-manager' ) . '</a>';
+            if ( 'validate' === $draw_step && null === $flow_summary ) {
+                $flow_summary = $this->prepare_manual_draw_pool(
+                    $loterie_id,
+                    array(
+                        'exclude_cancelled' => $flow_state['exclude_cancelled'],
+                    )
+                );
+            }
 
-            if ( $draw_success && $report_id ) {
-                $download_url = wp_nonce_url(
+            if ( empty( $flow_summary ) && 'validate' === $draw_step ) {
+                $draw_step = 'prepare';
+            }
+
+            $report_entry = null;
+            if ( $report_id ) {
+                foreach ( $reports as $entry ) {
+                    if ( isset( $entry['id'] ) && $entry['id'] === $report_id ) {
+                        $report_entry = $entry;
+                        break;
+                    }
+                }
+            }
+
+            $flow_current = 1;
+            if ( 'validate' === $draw_step ) {
+                $flow_current = 2;
+            }
+            if ( $draw_success && $report_entry ) {
+                $flow_current = 3;
+            }
+
+            $thumbnail_url = get_the_post_thumbnail_url( $post, 'large' );
+            $period_label  = $stats['end_date'] ? date_i18n( get_option( 'date_format' ), strtotime( $post->post_date ) ) . ' → ' . date_i18n( get_option( 'date_format' ), strtotime( $stats['end_date'] ) ) : date_i18n( get_option( 'date_format' ), strtotime( $post->post_date ) );
+            $status_class  = $stats['status_class'];
+            $status_label  = $stats['status_label'];
+            $progress      = $stats['progress'];
+
+            $mode_labels = array(
+                'inherit'  => $stats['global_reassignment'] ? __( 'Hérite (ON)', 'loterie-manager' ) : __( 'Hérite (OFF)', 'loterie-manager' ),
+                'enabled'  => __( 'Forcer ON', 'loterie-manager' ),
+                'disabled' => __( 'Forcer OFF', 'loterie-manager' ),
+            );
+
+            $timeline_entries = array();
+            foreach ( $logs as $entry ) {
+                $timeline_entries[] = array(
+                    'date'    => isset( $entry['timestamp'] ) ? intval( $entry['timestamp'] ) : 0,
+                    'message' => $entry['message'],
+                );
+            }
+
+            $report_download_url = '';
+            if ( $report_entry ) {
+                $report_download_url = wp_nonce_url(
                     add_query_arg(
                         array(
                             'action'    => 'lm_download_draw_report',
                             'loterie'   => $loterie_id,
-                            'report_id' => $report_id,
+                            'report_id' => $report_entry['id'],
                         ),
                         admin_url( 'admin-post.php' )
                     ),
                     'lm_download_draw_report_' . $loterie_id
                 );
-                echo '<div class="notice notice-success"><p>' . esc_html__( 'Tirage manuel enregistré. Téléchargez le rapport pour votre dossier.', 'loterie-manager' ) . ' <a href="' . esc_url( $download_url ) . '">' . esc_html__( 'Télécharger le rapport', 'loterie-manager' ) . '</a></p></div>';
             }
 
-            echo '<div class="lm-lottery-summary">';
-            echo '<div class="lm-lottery-card">';
-            echo '<div class="lm-lottery-card__status"><span class="lm-status ' . esc_attr( $stats['status_class'] ) . '">' . esc_html( $stats['status_label'] ) . '</span></div>';
-            echo '<ul class="lm-kpi-list">';
-            echo '<li><strong>' . esc_html__( 'Tickets valides', 'loterie-manager' ) . '</strong><span>' . esc_html( $stats['valid_tickets'] ) . '</span></li>';
-            echo '<li><strong>' . esc_html__( 'Tickets invalidés', 'loterie-manager' ) . '</strong><span>' . esc_html( $stats['invalid_tickets'] ) . '</span></li>';
-            echo '<li><strong>' . esc_html__( 'Participants uniques', 'loterie-manager' ) . '</strong><span>' . esc_html( $stats['unique_participants'] ) . '</span></li>';
-            echo '<li><strong>' . esc_html__( 'Chiffre d’affaires lié', 'loterie-manager' ) . '</strong><span>' . esc_html( $this->format_currency( $stats['revenue'] ) ) . '</span></li>';
-            echo '<li><strong>' . esc_html__( 'Panier moyen', 'loterie-manager' ) . '</strong><span>' . esc_html( $this->format_currency( $stats['average_order'] ) ) . '</span></li>';
-            echo '</ul>';
-            echo '</div>';
-
-            echo '<div class="lm-lottery-actions">';
-            echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="lm-inline-form">';
-            wp_nonce_field( 'lm_toggle_loterie_reassignment_' . $loterie_id, 'lm_toggle_loterie_nonce' );
-            echo '<input type="hidden" name="action" value="lm_toggle_loterie_reassignment" />';
-            echo '<input type="hidden" name="loterie_id" value="' . esc_attr( $loterie_id ) . '" />';
-            echo '<input type="hidden" name="redirect_to" value="' . esc_url( $redirect ) . '" />';
-            echo '<label for="lm_reassignment_mode"><strong>' . esc_html__( 'Réaffectation locale', 'loterie-manager' ) . '</strong></label>';
-            echo '<select name="lm_reassignment_mode" id="lm_reassignment_mode">';
-            echo '<option value="inherit"' . selected( 'inherit', $mode, false ) . '>' . esc_html__( 'Hériter du réglage global', 'loterie-manager' ) . '</option>';
-            echo '<option value="enabled"' . selected( 'enabled', $mode, false ) . '>' . esc_html__( 'Forcer l’activation', 'loterie-manager' ) . '</option>';
-            echo '<option value="disabled"' . selected( 'disabled', $mode, false ) . '>' . esc_html__( 'Désactiver pour cette loterie', 'loterie-manager' ) . '</option>';
-            echo '</select>';
-            echo '<button type="submit" class="button">' . esc_html__( 'Enregistrer', 'loterie-manager' ) . '</button>';
-            echo '</form>';
-
-            echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="lm-inline-form">';
-            wp_nonce_field( 'lm_export_participants_' . $loterie_id, 'lm_export_nonce' );
-            echo '<input type="hidden" name="action" value="lm_export_participants" />';
-            echo '<input type="hidden" name="loterie_id" value="' . esc_attr( $loterie_id ) . '" />';
-            echo '<button type="submit" class="button button-secondary">' . esc_html__( 'Exporter participants (Huissier)', 'loterie-manager' ) . '</button>';
-            echo '</form>';
-
-            if ( $stats['ready_for_draw'] ) {
-                echo '<details class="lm-manual-draw">';
-                echo '<summary>' . esc_html__( 'Effectuer un tirage manuel', 'loterie-manager' ) . '</summary>';
-                echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
-                wp_nonce_field( 'lm_manual_draw_' . $loterie_id, 'lm_manual_draw_nonce' );
-                echo '<input type="hidden" name="action" value="lm_manual_draw" />';
-                echo '<input type="hidden" name="loterie_id" value="' . esc_attr( $loterie_id ) . '" />';
-                echo '<p>' . esc_html__( 'Seuls les tickets valides et non déjà tirés seront pris en compte.', 'loterie-manager' ) . '</p>';
-                echo '<p><label for="lm_public_seed"><strong>' . esc_html__( 'Aléa public (obligatoire)', 'loterie-manager' ) . '</strong></label><input type="text" class="regular-text" id="lm_public_seed" name="lm_public_seed" required /></p>';
-                echo '<p><label for="lm_alternate_count"><strong>' . esc_html__( 'Nombre de suppléants', 'loterie-manager' ) . '</strong></label><input type="number" id="lm_alternate_count" name="lm_alternate_count" min="0" max="10" value="2" /></p>';
-                echo '<p><label><input type="checkbox" name="lm_draw_confirm" value="1" required /> ' . esc_html__( 'Je confirme avoir vérifié la liste des participants.', 'loterie-manager' ) . '</label></p>';
-                echo '<p><button type="submit" class="button button-primary">' . esc_html__( 'Lancer le tirage', 'loterie-manager' ) . '</button></p>';
-                echo '</form>';
-                echo '</details>';
-            } else {
-                echo '<p class="description">' . esc_html__( 'Le tirage manuel sera disponible lorsque la loterie sera prête (tickets valides et échéance atteinte).', 'loterie-manager' ) . '</p>';
+            $export_context = null;
+            if ( $export_target === $loterie_id ) {
+                $export_context = $stats;
             }
 
-            echo '</div>'; // actions
-            echo '</div>'; // summary wrapper
-
-            echo '<hr class="wp-header-end" />';
-
-            echo '<form method="get" class="lm-admin-filters">';
-            echo '<input type="hidden" name="page" value="winshirt-lotteries" />';
-            echo '<input type="hidden" name="loterie" value="' . esc_attr( $loterie_id ) . '" />';
-            echo '<label for="lm_search" class="screen-reader-text">' . esc_html__( 'Rechercher', 'loterie-manager' ) . '</label>';
-            echo '<input type="search" id="lm_search" name="lm_search" value="' . esc_attr( $search ) . '" placeholder="' . esc_attr__( 'Recherche plein texte…', 'loterie-manager' ) . '" />';
-            echo '<label for="lm_status" class="screen-reader-text">' . esc_html__( 'Filtrer par statut', 'loterie-manager' ) . '</label>';
-            echo '<select id="lm_status" name="lm_status">';
-            $status_options = array(
-                ''          => __( 'Tous les statuts', 'loterie-manager' ),
-                'valid'     => __( 'Valide', 'loterie-manager' ),
-                'invalid'   => __( 'Invalidé', 'loterie-manager' ),
-                'winner'    => __( 'Gagnant', 'loterie-manager' ),
-                'alternate' => __( 'Suppléant', 'loterie-manager' ),
-            );
-            foreach ( $status_options as $value => $label ) {
-                echo '<option value="' . esc_attr( $value ) . '"' . selected( $status_filter, $value, false ) . '>' . esc_html( $label ) . '</option>';
-            }
-            echo '</select>';
-            echo '<button type="submit" class="button">' . esc_html__( 'Filtrer', 'loterie-manager' ) . '</button>';
-            echo '</form>';
-
-            echo '<table class="widefat fixed striped lm-admin-table">';
-            echo '<thead><tr>';
-            echo '<th>' . esc_html__( 'Ticket', 'loterie-manager' ) . '</th>';
-            echo '<th>' . esc_html__( 'Participant', 'loterie-manager' ) . '</th>';
-            echo '<th>' . esc_html__( 'Email', 'loterie-manager' ) . '</th>';
-            echo '<th>' . esc_html__( 'Statut', 'loterie-manager' ) . '</th>';
-            echo '<th>' . esc_html__( 'Commande', 'loterie-manager' ) . '</th>';
-            echo '<th>' . esc_html__( 'Date d’émission', 'loterie-manager' ) . '</th>';
-            echo '<th>' . esc_html__( 'Ville', 'loterie-manager' ) . '</th>';
-            echo '<th>' . esc_html__( 'Pays', 'loterie-manager' ) . '</th>';
-            echo '<th>' . esc_html__( 'Téléphone', 'loterie-manager' ) . '</th>';
-            echo '</tr></thead><tbody>';
-
-            if ( empty( $tickets ) ) {
-                echo '<tr><td colspan="9">' . esc_html__( 'Aucun ticket ne correspond à vos critères.', 'loterie-manager' ) . '</td></tr>';
-            } else {
-                foreach ( $tickets as $ticket ) {
-                    echo '<tr class="lm-ticket-row lm-ticket-row--status-' . esc_attr( $ticket['status'] ) . '">';
-                    echo '<td><strong>' . esc_html( $ticket['ticket_number'] ) . '</strong><br /><small>' . esc_html( sprintf( __( 'Montant associé : %s', 'loterie-manager' ), $this->format_currency( $ticket['amount'] ) ) ) . '</small></td>';
-                    echo '<td>' . esc_html( $ticket['customer_name'] ) . '</td>';
-                    echo '<td><a href="mailto:' . esc_attr( $ticket['customer_email'] ) . '">' . esc_html( $ticket['customer_email'] ) . '</a></td>';
-                    echo '<td><span class="lm-status ' . esc_attr( $ticket['status'] ) . '">' . esc_html( $ticket['status_label'] ) . '</span>';
-                    if ( ! empty( $ticket['status_note'] ) ) {
-                        echo '<br /><small>' . esc_html( $ticket['status_note'] ) . '</small>';
-                    }
-                    echo '</td>';
-                    echo '<td>#' . esc_html( $ticket['order_number'] ) . '</td>';
-                    echo '<td>' . esc_html( $this->format_admin_datetime( $ticket['order_date'] ) ) . '</td>';
-                    echo '<td>' . esc_html( $ticket['customer_city'] ) . '</td>';
-                    echo '<td>' . esc_html( $ticket['customer_country'] ) . '</td>';
-                    echo '<td>' . esc_html( $ticket['customer_phone'] ) . '</td>';
-                    echo '</tr>';
-                }
+            $winner        = array();
+            $alternates    = array();
+            if ( $report_entry && ! empty( $report_entry['winners'] ) ) {
+                $winner     = $report_entry['winners'][0];
+                $alternates = array_slice( $report_entry['winners'], 1 );
             }
 
-            echo '</tbody></table>';
+            $manual_reports = array_slice( $reports, 0, 5 );
 
-            if ( ! empty( $stats['total_pages'] ) && $stats['total_pages'] > 1 ) {
-                $pagination = paginate_links(
-                    array(
-                        'base'      => add_query_arg( array( 'paged' => '%#%' ), remove_query_arg( 'paged' ) ),
-                        'format'    => '',
-                        'prev_text' => __( '« Précédent', 'loterie-manager' ),
-                        'next_text' => __( 'Suivant »', 'loterie-manager' ),
-                        'total'     => max( 1, intval( $stats['total_pages'] ) ),
-                        'current'   => max( 1, intval( $stats['current_page'] ) ),
-                    )
-                );
+            $draw_ready = $stats['ready_for_draw'];
 
-                if ( $pagination ) {
-                    echo '<div class="tablenav"><div class="tablenav-pages">' . wp_kses_post( $pagination ) . '</div></div>';
-                }
-            }
+            ob_start();
+            ?>
+            <div class="lm-app lm-app--dark">
+                <aside class="lm-sidebar">
+                    <div class="lm-sidebar__brand">WinShirt</div>
+                    <nav class="lm-sidebar__nav">
+                        <a class="lm-sidebar__item" href="<?php echo esc_url( admin_url( 'admin.php?page=winshirt-lotteries' ) ); ?>">
+                            <span class="dashicons dashicons-tickets"></span>
+                            <span><?php esc_html_e( 'Loteries', 'loterie-manager' ); ?></span>
+                        </a>
+                        <a class="lm-sidebar__item is-active" href="<?php echo esc_url( admin_url( 'admin.php?page=winshirt-lotteries&loterie=' . $loterie_id ) ); ?>">
+                            <span class="dashicons dashicons-visibility"></span>
+                            <span><?php esc_html_e( 'Détail', 'loterie-manager' ); ?></span>
+                        </a>
+                    </nav>
+                </aside>
+                <main class="lm-main">
+                    <a class="lm-breadcrumb" href="<?php echo esc_url( admin_url( 'admin.php?page=winshirt-lotteries' ) ); ?>">&larr; <?php esc_html_e( 'Retour au tableau de bord', 'loterie-manager' ); ?></a>
 
-            echo '<h2>' . esc_html__( 'Journal des actions', 'loterie-manager' ) . '</h2>';
-            echo '<table class="widefat striped">';
-            echo '<thead><tr><th>' . esc_html__( 'Date', 'loterie-manager' ) . '</th><th>' . esc_html__( 'Événement', 'loterie-manager' ) . '</th></tr></thead><tbody>';
+                    <section class="lm-card lm-card--hero">
+                        <div class="lm-hero">
+                            <div class="lm-hero__media"<?php if ( $thumbnail_url ) : ?> style="background-image:url('<?php echo esc_url( $thumbnail_url ); ?>')"<?php endif; ?>>
+                                <?php if ( ! $thumbnail_url ) : ?>
+                                    <span class="dashicons dashicons-format-gallery"></span>
+                                <?php endif; ?>
+                            </div>
+                            <div class="lm-hero__content">
+                                <span class="lm-status <?php echo esc_attr( $status_class ); ?>"><?php echo esc_html( $status_label ); ?></span>
+                                <h1><?php echo esc_html( get_the_title( $post ) ); ?></h1>
+                                <p class="lm-hero__period"><?php echo esc_html( $period_label ); ?></p>
+                                <div class="lm-hero__progress">
+                                    <div class="lm-progress"><span style="width: <?php echo esc_attr( $progress ); ?>%"></span></div>
+                                    <span><?php printf( esc_html__( '%1$s%% de l’objectif atteint (%2$d / %3$s tickets)', 'loterie-manager' ), number_format_i18n( $progress, 1 ), intval( $stats['valid_tickets'] ), $stats['capacity'] > 0 ? intval( $stats['capacity'] ) : 0 ); ?></span>
+                                </div>
+                            </div>
+                            <div class="lm-hero__actions">
+                                <div class="lm-hero__buttons">
+                                    <?php if ( $draw_ready ) : ?>
+                                        <a class="button button-primary" href="<?php echo esc_url( add_query_arg( array( 'lm_draw_step' => 'prepare' ), $redirect ) ); ?>"><?php esc_html_e( 'Tirage manuel', 'loterie-manager' ); ?></a>
+                                    <?php else : ?>
+                                        <button class="button button-primary" type="button" disabled title="<?php esc_attr_e( 'Disponible lorsque la loterie est prête à être tirée.', 'loterie-manager' ); ?>"><?php esc_html_e( 'Tirage manuel', 'loterie-manager' ); ?></button>
+                                    <?php endif; ?>
+                                    <a class="button" href="<?php echo esc_url( add_query_arg( array( 'lm_export' => $loterie_id ), $redirect ) ); ?>"><?php esc_html_e( 'Exporter participants (Huissier)', 'loterie-manager' ); ?></a>
+                                </div>
+                                <form class="lm-hero__toggle" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                                    <?php wp_nonce_field( 'lm_toggle_loterie_reassignment_' . $loterie_id, 'lm_toggle_loterie_nonce' ); ?>
+                                    <input type="hidden" name="action" value="lm_toggle_loterie_reassignment" />
+                                    <input type="hidden" name="loterie_id" value="<?php echo esc_attr( $loterie_id ); ?>" />
+                                    <input type="hidden" name="redirect_to" value="<?php echo esc_url( $redirect ); ?>" />
+                                    <label for="lm_reassignment_mode"><span><?php esc_html_e( 'Réaffectation automatique', 'loterie-manager' ); ?></span></label>
+                                    <select id="lm_reassignment_mode" name="lm_reassignment_mode">
+                                        <option value="inherit" <?php selected( 'inherit', $mode ); ?>><?php echo esc_html( $mode_labels['inherit'] ); ?></option>
+                                        <option value="enabled" <?php selected( 'enabled', $mode ); ?>><?php echo esc_html( $mode_labels['enabled'] ); ?></option>
+                                        <option value="disabled" <?php selected( 'disabled', $mode ); ?>><?php echo esc_html( $mode_labels['disabled'] ); ?></option>
+                                    </select>
+                                    <p class="lm-hero__toggle-note"><?php printf( esc_html__( 'État effectif : %s', 'loterie-manager' ), $stats['reassignment_enabled'] ? esc_html__( 'Activée', 'loterie-manager' ) : esc_html__( 'Désactivée', 'loterie-manager' ) ); ?></p>
+                                    <button type="submit" class="button button-secondary"><?php esc_html_e( 'Mettre à jour', 'loterie-manager' ); ?></button>
+                                </form>
+                            </div>
+                        </div>
+                    </section>
 
-            if ( empty( $logs ) ) {
-                echo '<tr><td colspan="2">' . esc_html__( 'Aucune action enregistrée pour le moment.', 'loterie-manager' ) . '</td></tr>';
-            } else {
-                foreach ( $logs as $entry ) {
-                    $time = isset( $entry['timestamp'] ) ? intval( $entry['timestamp'] ) : 0;
-                    echo '<tr><td>' . esc_html( $this->format_admin_datetime( $time ) ) . '</td><td>' . esc_html( $entry['message'] ) . '</td></tr>';
-                }
-            }
+                    <section class="lm-kpi-grid lm-kpi-grid--detail">
+                        <article class="lm-kpi">
+                            <h3><?php esc_html_e( 'Tickets valides', 'loterie-manager' ); ?></h3>
+                            <p><?php echo esc_html( number_format_i18n( $stats['valid_tickets'] ) ); ?></p>
+                        </article>
+                        <article class="lm-kpi">
+                            <h3><?php esc_html_e( 'Participants uniques', 'loterie-manager' ); ?></h3>
+                            <p><?php echo esc_html( number_format_i18n( $stats['unique_participants'] ) ); ?></p>
+                        </article>
+                        <article class="lm-kpi">
+                            <h3><?php esc_html_e( 'CA lié', 'loterie-manager' ); ?></h3>
+                            <p><?php echo esc_html( $this->format_currency( $stats['revenue'] ) ); ?></p>
+                        </article>
+                        <article class="lm-kpi">
+                            <h3><?php esc_html_e( 'Conversion billets', 'loterie-manager' ); ?></h3>
+                            <p><?php echo esc_html( number_format_i18n( $stats['conversion_rate'], 1 ) ); ?><span>%</span></p>
+                        </article>
+                    </section>
 
-            echo '</tbody></table>';
+                    <?php if ( 'prepare' === $draw_step || 'validate' === $draw_step ) : ?>
+                        <section class="lm-card lm-card--glass lm-manual-draw">
+                            <header class="lm-card__header">
+                                <div>
+                                    <h2><?php esc_html_e( 'Tirage manuel', 'loterie-manager' ); ?></h2>
+                                    <p><?php esc_html_e( 'Flux en 3 étapes pour garantir un tirage traçable.', 'loterie-manager' ); ?></p>
+                                </div>
+                                <ol class="lm-steps">
+                                    <li class="<?php echo 1 === $flow_current ? 'is-active' : ( $flow_current > 1 ? 'is-complete' : '' ); ?>"><?php esc_html_e( 'Préparer', 'loterie-manager' ); ?></li>
+                                    <li class="<?php echo 2 === $flow_current ? 'is-active' : ( $flow_current > 2 ? 'is-complete' : '' ); ?>"><?php esc_html_e( 'Valider', 'loterie-manager' ); ?></li>
+                                    <li class="<?php echo 3 === $flow_current ? 'is-active' : ''; ?>"><?php esc_html_e( 'Résultat', 'loterie-manager' ); ?></li>
+                                </ol>
+                            </header>
+                            <?php if ( ! empty( $draw_errors ) ) : ?>
+                                <div class="lm-alert lm-alert--error">
+                                    <?php foreach ( $draw_errors as $error ) : ?>
+                                        <p><?php echo esc_html( $error ); ?></p>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
+                            <?php if ( 'validate' === $draw_step && $flow_summary ) : ?>
+                                <div class="lm-manual-draw__body">
+                                    <h3><?php esc_html_e( 'Étape 2 : valider les paramètres', 'loterie-manager' ); ?></h3>
+                                    <ul class="lm-manual-draw__summary">
+                                        <li><?php printf( esc_html__( '%d tickets analysés', 'loterie-manager' ), intval( $flow_summary['total_source'] ) ); ?></li>
+                                        <li><?php printf( esc_html__( '%d tickets invalidés (statut)', 'loterie-manager' ), intval( $flow_summary['excluded_status'] ) ); ?></li>
+                                        <?php if ( $flow_state['exclude_cancelled'] ) : ?>
+                                            <li><?php printf( esc_html__( '%d exclusions commandes annulées / non payées', 'loterie-manager' ), intval( $flow_summary['excluded_orders'] ) ); ?></li>
+                                        <?php endif; ?>
+                                        <li><?php printf( esc_html__( '%d tickets éligibles au tirage', 'loterie-manager' ), count( $flow_summary['tickets'] ) ); ?></li>
+                                        <li><?php printf( esc_html__( 'Aléa public : %s', 'loterie-manager' ), $flow_state['public_seed'] ? esc_html( $flow_state['public_seed'] ) : esc_html__( 'Non renseigné', 'loterie-manager' ) ); ?></li>
+                                    </ul>
+                                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="lm-manual-draw__form">
+                                        <?php wp_nonce_field( 'lm_manual_draw_' . $loterie_id, 'lm_manual_draw_nonce' ); ?>
+                                        <input type="hidden" name="action" value="lm_manual_draw" />
+                                        <input type="hidden" name="loterie_id" value="<?php echo esc_attr( $loterie_id ); ?>" />
+                                        <input type="hidden" name="lm_draw_exclude_cancelled" value="<?php echo $flow_state['exclude_cancelled'] ? '1' : '0'; ?>" />
+                                        <input type="hidden" name="lm_public_seed" value="<?php echo esc_attr( $flow_state['public_seed'] ); ?>" />
+                                        <input type="hidden" name="lm_draw_confirm" value="1" />
+                                        <div class="lm-field-group">
+                                            <label for="lm_alternate_count"><span><?php esc_html_e( 'Nombre de suppléants', 'loterie-manager' ); ?></span></label>
+                                            <input type="number" id="lm_alternate_count" name="lm_alternate_count" min="0" max="3" value="<?php echo esc_attr( min( 3, max( 0, isset( $_POST['lm_alternate_count'] ) ? absint( $_POST['lm_alternate_count'] ) : 0 ) ) ); ?>" />
+                                            <p class="description"><?php esc_html_e( 'Entre 0 et 3 suppléants seront tirés après le gagnant.', 'loterie-manager' ); ?></p>
+                                        </div>
+                                        <div class="lm-manual-draw__actions">
+                                            <a class="button" href="<?php echo esc_url( add_query_arg( array( 'lm_draw_step' => 'prepare' ), $redirect ) ); ?>"><?php esc_html_e( 'Retour', 'loterie-manager' ); ?></a>
+                                            <button type="submit" class="button button-primary" onclick="return confirm('<?php echo esc_js( __( 'Confirmer le lancement du tirage ?', 'loterie-manager' ) ); ?>');"><?php esc_html_e( 'Lancer le tirage', 'loterie-manager' ); ?></button>
+                                        </div>
+                                    </form>
+                                </div>
+                            <?php else : ?>
+                                <div class="lm-manual-draw__body">
+                                    <h3><?php esc_html_e( 'Étape 1 : préparer le tirage', 'loterie-manager' ); ?></h3>
+                                    <p class="lm-manual-draw__intro"><?php esc_html_e( 'Indiquez les options de filtrage et consignez un éventuel aléa public avant de passer à la validation.', 'loterie-manager' ); ?></p>
+                                    <form method="post" action="<?php echo esc_url( add_query_arg( array( 'lm_draw_step' => 'prepare' ), $redirect ) ); ?>" class="lm-manual-draw__form">
+                                        <?php wp_nonce_field( 'lm_manual_draw_flow_' . $loterie_id, 'lm_manual_draw_flow_nonce' ); ?>
+                                        <input type="hidden" name="lm_draw_step" value="validate" />
+                                        <label class="lm-checkbox">
+                                            <input type="checkbox" name="lm_draw_exclude_cancelled" value="1" <?php checked( $flow_state['exclude_cancelled'], true ); ?> />
+                                            <span><?php esc_html_e( 'Exclure automatiquement les commandes annulées/non payées.', 'loterie-manager' ); ?></span>
+                                        </label>
+                                        <label class="lm-checkbox">
+                                            <input type="checkbox" name="lm_draw_confirm_participants" value="1" />
+                                            <span><?php esc_html_e( 'J’ai vérifié que la liste des participants est correcte.', 'loterie-manager' ); ?></span>
+                                        </label>
+                                        <label class="lm-field">
+                                            <span><?php esc_html_e( 'Aléa public (facultatif)', 'loterie-manager' ); ?></span>
+                                            <input type="text" name="lm_public_seed" value="<?php echo esc_attr( $flow_state['public_seed'] ); ?>" placeholder="<?php esc_attr_e( 'Référence externe, code de tirage…', 'loterie-manager' ); ?>" />
+                                            <p class="description"><?php esc_html_e( 'Indice public pour documenter la loyauté du tirage.', 'loterie-manager' ); ?></p>
+                                        </label>
+                                        <div class="lm-manual-draw__actions">
+                                            <button type="submit" class="button button-primary"><?php esc_html_e( 'Suivant', 'loterie-manager' ); ?></button>
+                                        </div>
+                                    </form>
+                                </div>
+                            <?php endif; ?>
+                        </section>
+                    <?php endif; ?>
 
-            if ( ! empty( $reports ) ) {
-                echo '<h2>' . esc_html__( 'Rapports de tirage', 'loterie-manager' ) . '</h2>';
-                echo '<ul class="lm-draw-reports">';
-                foreach ( $reports as $report ) {
-                    $download_url = wp_nonce_url(
-                        add_query_arg(
-                            array(
-                                'action'    => 'lm_download_draw_report',
-                                'loterie'   => $loterie_id,
-                                'report_id' => $report['id'],
-                            ),
-                            admin_url( 'admin-post.php' )
-                        ),
-                        'lm_download_draw_report_' . $loterie_id
-                    );
-                    echo '<li><strong>' . esc_html( $this->format_admin_datetime( intval( $report['created_at'] ) ) ) . '</strong> — <a href="' . esc_url( $download_url ) . '">' . esc_html__( 'Télécharger', 'loterie-manager' ) . '</a></li>';
-                }
-                echo '</ul>';
-            }
+                    <?php if ( $draw_success && $report_entry ) : ?>
+                        <section class="lm-card lm-card--glass lm-draw-result">
+                            <header class="lm-card__header">
+                                <div>
+                                    <h2><?php esc_html_e( 'Résultat du tirage', 'loterie-manager' ); ?></h2>
+                                    <p><?php esc_html_e( 'Rapport journalisé et disponible au téléchargement.', 'loterie-manager' ); ?></p>
+                                </div>
+                                <div class="lm-draw-result__actions">
+                                    <?php if ( $report_download_url ) : ?>
+                                        <a class="button button-primary" href="<?php echo esc_url( $report_download_url ); ?>"><?php esc_html_e( 'Télécharger le rapport', 'loterie-manager' ); ?></a>
+                                    <?php endif; ?>
+                                    <a class="button" href="<?php echo esc_url( add_query_arg( array(), remove_query_arg( array( 'lm_draw_success', 'lm_report' ) ) ) ); ?>"><?php esc_html_e( 'Fermer', 'loterie-manager' ); ?></a>
+                                    <a class="button button-link" href="#lm-journal"><?php esc_html_e( 'Voir dans le Journal', 'loterie-manager' ); ?></a>
+                                </div>
+                            </header>
+                            <div class="lm-draw-result__body">
+                                <div class="lm-draw-result__winner">
+                                    <h3><?php esc_html_e( 'Ticket gagnant', 'loterie-manager' ); ?></h3>
+                                    <p class="lm-draw-result__ticket">#<?php echo esc_html( $winner['ticket_number'] ?? '' ); ?></p>
+                                    <p><?php echo esc_html( $winner['participant'] ?? '' ); ?> &middot; <?php echo esc_html( $winner['email'] ?? '' ); ?></p>
+                                    <p><?php printf( esc_html__( 'Commande %s', 'loterie-manager' ), esc_html( $winner['order_number'] ?? '' ) ); ?></p>
+                                </div>
+                                <?php if ( ! empty( $alternates ) ) : ?>
+                                    <div class="lm-draw-result__alternates">
+                                        <h3><?php esc_html_e( 'Suppléants', 'loterie-manager' ); ?></h3>
+                                        <ol>
+                                            <?php foreach ( $alternates as $alternate ) : ?>
+                                                <li>
+                                                    <strong>#<?php echo esc_html( $alternate['ticket_number'] ); ?></strong>
+                                                    <span><?php echo esc_html( $alternate['participant'] ); ?> &middot; <?php echo esc_html( $alternate['email'] ); ?></span>
+                                                </li>
+                                            <?php endforeach; ?>
+                                        </ol>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        </section>
+                    <?php endif; ?>
 
-            echo '</div>';
+                    <section class="lm-card lm-card--glass">
+                        <header class="lm-card__header">
+                            <div>
+                                <h2><?php esc_html_e( 'Tickets & participants', 'loterie-manager' ); ?></h2>
+                                <p><?php esc_html_e( 'Recherche, filtres et pagination intégrés.', 'loterie-manager' ); ?></p>
+                            </div>
+                            <form class="lm-topbar__filters" method="get">
+                                <input type="hidden" name="page" value="winshirt-lotteries" />
+                                <input type="hidden" name="loterie" value="<?php echo esc_attr( $loterie_id ); ?>" />
+                                <label class="lm-field lm-field--search">
+                                    <span class="dashicons dashicons-search"></span>
+                                    <input type="search" name="lm_search" value="<?php echo esc_attr( $search ); ?>" placeholder="<?php esc_attr_e( 'Recherche plein texte…', 'loterie-manager' ); ?>" />
+                                </label>
+                                <label class="lm-field">
+                                    <span class="screen-reader-text"><?php esc_html_e( 'Filtrer par statut', 'loterie-manager' ); ?></span>
+                                    <select name="lm_status">
+                                        <?php
+                                        $status_options = array(
+                                            ''          => __( 'Tous les statuts', 'loterie-manager' ),
+                                            'valid'     => __( 'Valide', 'loterie-manager' ),
+                                            'invalid'   => __( 'Invalidé', 'loterie-manager' ),
+                                            'winner'    => __( 'Gagnant', 'loterie-manager' ),
+                                            'alternate' => __( 'Suppléant', 'loterie-manager' ),
+                                        );
+                                        foreach ( $status_options as $value => $label ) {
+                                            printf( '<option value="%1$s" %2$s>%3$s</option>', esc_attr( $value ), selected( $status_filter, $value, false ), esc_html( $label ) );
+                                        }
+                                        ?>
+                                    </select>
+                                </label>
+                                <button type="submit" class="button button-primary"><?php esc_html_e( 'Filtrer', 'loterie-manager' ); ?></button>
+                            </form>
+                        </header>
+                        <?php if ( empty( $tickets ) ) : ?>
+                            <div class="lm-empty">
+                                <span class="dashicons dashicons-groups"></span>
+                                <p><?php esc_html_e( 'Aucun ticket ne correspond à votre recherche.', 'loterie-manager' ); ?></p>
+                            </div>
+                        <?php else : ?>
+                            <div class="lm-table-wrapper">
+                                <table class="lm-data-table">
+                                    <thead>
+                                        <tr>
+                                            <th><?php esc_html_e( 'N° ticket', 'loterie-manager' ); ?></th>
+                                            <th><?php esc_html_e( 'Client', 'loterie-manager' ); ?></th>
+                                            <th><?php esc_html_e( 'Email', 'loterie-manager' ); ?></th>
+                                            <th><?php esc_html_e( 'Statut', 'loterie-manager' ); ?></th>
+                                            <th><?php esc_html_e( 'Commande', 'loterie-manager' ); ?></th>
+                                            <th><?php esc_html_e( 'Date', 'loterie-manager' ); ?></th>
+                                            <th><?php esc_html_e( 'Ville', 'loterie-manager' ); ?></th>
+                                            <th><?php esc_html_e( 'Pays', 'loterie-manager' ); ?></th>
+                                            <th><?php esc_html_e( 'Notes', 'loterie-manager' ); ?></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ( $tickets as $ticket ) : ?>
+                                            <tr class="lm-ticket-row lm-ticket-row--status-<?php echo esc_attr( $ticket['status'] ); ?>">
+                                                <td>
+                                                    <strong><?php echo esc_html( $ticket['ticket_number'] ); ?></strong>
+                                                    <span class="lm-ticket-note"><?php echo esc_html( $this->format_currency( $ticket['amount'] ) ); ?></span>
+                                                </td>
+                                                <td><?php echo esc_html( $ticket['customer_name'] ); ?></td>
+                                                <td><a href="mailto:<?php echo esc_attr( $ticket['customer_email'] ); ?>"><?php echo esc_html( $ticket['customer_email'] ); ?></a></td>
+                                                <td>
+                                                    <span class="lm-status <?php echo esc_attr( $ticket['status'] ); ?>"><?php echo esc_html( $ticket['status_label'] ); ?></span>
+                                                    <?php if ( ! empty( $ticket['status_note'] ) ) : ?>
+                                                        <span class="lm-ticket-note"><?php echo esc_html( $ticket['status_note'] ); ?></span>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td>#<?php echo esc_html( $ticket['order_number'] ); ?></td>
+                                                <td><?php echo esc_html( $this->format_admin_datetime( $ticket['order_date'] ) ); ?></td>
+                                                <td><?php echo esc_html( $ticket['customer_city'] ); ?></td>
+                                                <td><?php echo esc_html( $ticket['customer_country'] ); ?></td>
+                                                <td><?php echo esc_html( $ticket['status_note'] ); ?></td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <?php endif; ?>
+                        <?php if ( ! empty( $stats['total_pages'] ) && $stats['total_pages'] > 1 ) : ?>
+                            <div class="lm-pagination">
+                                <?php
+                                echo wp_kses_post(
+                                    paginate_links(
+                                        array(
+                                            'base'      => add_query_arg( array( 'paged' => '%#%' ), remove_query_arg( 'paged' ) ),
+                                            'format'    => '',
+                                            'prev_text' => __( '« Précédent', 'loterie-manager' ),
+                                            'next_text' => __( 'Suivant »', 'loterie-manager' ),
+                                            'total'     => max( 1, intval( $stats['total_pages'] ) ),
+                                            'current'   => max( 1, intval( $stats['current_page'] ) ),
+                                        )
+                                    )
+                                );
+                                ?>
+                            </div>
+                        <?php endif; ?>
+                    </section>
+
+                    <section class="lm-card lm-card--glass" id="lm-journal">
+                        <header class="lm-card__header">
+                            <div>
+                                <h2><?php esc_html_e( 'Journal des événements', 'loterie-manager' ); ?></h2>
+                                <p><?php esc_html_e( 'Réaffectations, exports, tirages… tout est tracé.', 'loterie-manager' ); ?></p>
+                            </div>
+                        </header>
+                        <?php if ( empty( $timeline_entries ) ) : ?>
+                            <div class="lm-empty">
+                                <span class="dashicons dashicons-welcome-write-blog"></span>
+                                <p><?php esc_html_e( 'Aucune action enregistrée pour le moment.', 'loterie-manager' ); ?></p>
+                            </div>
+                        <?php else : ?>
+                            <ul class="lm-timeline">
+                                <?php foreach ( $timeline_entries as $entry ) : ?>
+                                    <li>
+                                        <span class="lm-timeline__date"><?php echo esc_html( $this->format_admin_datetime( $entry['date'] ) ); ?></span>
+                                        <span class="lm-timeline__message"><?php echo esc_html( $entry['message'] ); ?></span>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        <?php endif; ?>
+
+                        <?php if ( ! empty( $manual_reports ) ) : ?>
+                            <div class="lm-draw-reports">
+                                <h3><?php esc_html_e( 'Rapports de tirage récents', 'loterie-manager' ); ?></h3>
+                                <ul>
+                                    <?php foreach ( $manual_reports as $entry ) :
+                                        $download = wp_nonce_url(
+                                            add_query_arg(
+                                                array(
+                                                    'action'    => 'lm_download_draw_report',
+                                                    'loterie'   => $loterie_id,
+                                                    'report_id' => $entry['id'],
+                                                ),
+                                                admin_url( 'admin-post.php' )
+                                            ),
+                                            'lm_download_draw_report_' . $loterie_id
+                                        );
+                                        ?>
+                                        <li>
+                                            <strong><?php echo esc_html( $this->format_admin_datetime( intval( $entry['created_at'] ) ) ); ?></strong>
+                                            <a href="<?php echo esc_url( $download ); ?>"><?php esc_html_e( 'Télécharger', 'loterie-manager' ); ?></a>
+                                        </li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            </div>
+                        <?php endif; ?>
+                    </section>
+
+                    <?php if ( $export_context ) :
+                        $tickets_all = isset( $export_context['tickets_all'] ) ? $export_context['tickets_all'] : array();
+                        $estimate    = 0;
+                        foreach ( $tickets_all as $ticket ) {
+                            if ( in_array( $ticket['status'], array( 'valid', 'winner', 'alternate' ), true ) ) {
+                                $estimate++;
+                            }
+                        }
+                        ?>
+                        <div class="lm-modal is-open" role="dialog" aria-modal="true">
+                            <div class="lm-modal__dialog">
+                                <header class="lm-modal__header">
+                                    <h2><?php esc_html_e( 'Exporter participants (Huissier)', 'loterie-manager' ); ?></h2>
+                                    <a class="lm-modal__close" href="<?php echo esc_url( remove_query_arg( 'lm_export' ) ); ?>" aria-label="<?php esc_attr_e( 'Fermer', 'loterie-manager' ); ?>">&times;</a>
+                                </header>
+                                <div class="lm-modal__content">
+                                    <p><?php esc_html_e( 'Le fichier contient uniquement les tickets valides et leurs données nécessaires.', 'loterie-manager' ); ?></p>
+                                    <p class="lm-modal__meta"><?php printf( esc_html__( 'Estimé : %d lignes.', 'loterie-manager' ), $estimate ); ?></p>
+                                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="lm-modal__form">
+                                        <?php wp_nonce_field( 'lm_export_participants_' . $loterie_id, 'lm_export_nonce' ); ?>
+                                        <input type="hidden" name="action" value="lm_export_participants" />
+                                        <input type="hidden" name="loterie_id" value="<?php echo esc_attr( $loterie_id ); ?>" />
+                                        <label>
+                                            <span><?php esc_html_e( 'Période (optionnelle)', 'loterie-manager' ); ?></span>
+                                            <div class="lm-modal__range">
+                                                <input type="date" name="lm_export_start" />
+                                                <span>→</span>
+                                                <input type="date" name="lm_export_end" />
+                                            </div>
+                                        </label>
+                                        <p class="lm-modal__hint"><?php esc_html_e( 'Chaque export est journalisé avec date, heure et opérateur.', 'loterie-manager' ); ?></p>
+                                        <div class="lm-modal__actions">
+                                            <button type="submit" class="button button-primary"><?php esc_html_e( 'Exporter (CSV)', 'loterie-manager' ); ?></button>
+                                            <a class="button" href="<?php echo esc_url( remove_query_arg( 'lm_export' ) ); ?>"><?php esc_html_e( 'Annuler', 'loterie-manager' ); ?></a>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                </main>
+            </div>
+            <?php
+            echo ob_get_clean();
         }
-
         /**
          * Renders the global settings screen.
          */
@@ -2827,6 +3485,12 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 wp_die( esc_html__( 'Jeton de sécurité invalide.', 'loterie-manager' ) );
             }
 
+            $start_raw = isset( $_POST['lm_export_start'] ) ? sanitize_text_field( wp_unslash( $_POST['lm_export_start'] ) ) : '';
+            $end_raw   = isset( $_POST['lm_export_end'] ) ? sanitize_text_field( wp_unslash( $_POST['lm_export_end'] ) ) : '';
+
+            $start = $start_raw ? strtotime( $start_raw . ' 00:00:00' ) : 0;
+            $end   = $end_raw ? strtotime( $end_raw . ' 23:59:59' ) : 0;
+
             $stats   = $this->get_lottery_stats( $loterie_id, array( 'include_tickets' => true, 'force_refresh' => true, 'per_page' => -1 ) );
             $tickets = isset( $stats['tickets_all'] ) ? $stats['tickets_all'] : array();
             $tickets = array_filter(
@@ -2835,6 +3499,23 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                     return in_array( $ticket['status'], array( 'valid', 'winner', 'alternate' ), true );
                 }
             );
+
+            if ( $start || $end ) {
+                $tickets = array_filter(
+                    $tickets,
+                    static function ( $ticket ) use ( $start, $end ) {
+                        $date = isset( $ticket['order_date'] ) ? intval( $ticket['order_date'] ) : 0;
+                        if ( $start && $date < $start ) {
+                            return false;
+                        }
+                        if ( $end && $date > $end ) {
+                            return false;
+                        }
+
+                        return true;
+                    }
+                );
+            }
 
             if ( headers_sent() ) {
                 wp_die( esc_html__( 'Impossible de générer le fichier : les en-têtes HTTP ont déjà été envoyés.', 'loterie-manager' ) );
@@ -2890,10 +3571,65 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             $this->add_lottery_log(
                 $loterie_id,
                 'export',
-                sprintf( __( 'Export officiel généré (%d tickets).', 'loterie-manager' ), count( $tickets ) )
+                sprintf( __( 'Export officiel généré (%1$d tickets) – Période : %2$s → %3$s.', 'loterie-manager' ), count( $tickets ), $start ? wp_date( get_option( 'date_format' ), $start ) : __( 'Début', 'loterie-manager' ), $end ? wp_date( get_option( 'date_format' ), $end ) : __( 'Aujourd’hui', 'loterie-manager' ) )
             );
 
             exit;
+        }
+
+        /**
+         * Builds the manual draw pool with optional exclusions.
+         *
+         * @param int   $loterie_id Loterie ID.
+         * @param array $args       Arguments.
+         *
+         * @return array<string, mixed>
+         */
+        private function prepare_manual_draw_pool( $loterie_id, $args = array() ) {
+            $defaults = array(
+                'exclude_cancelled' => true,
+            );
+
+            $args = wp_parse_args( $args, $defaults );
+
+            $stats = $this->get_lottery_stats(
+                $loterie_id,
+                array(
+                    'include_tickets' => true,
+                    'force_refresh'   => true,
+                    'per_page'        => -1,
+                )
+            );
+
+            $tickets = isset( $stats['tickets_all'] ) ? $stats['tickets_all'] : array();
+
+            $invalid_status = 0;
+            $excluded_orders = 0;
+
+            $eligible = array();
+            foreach ( $tickets as $ticket ) {
+                if ( 'valid' !== $ticket['status'] ) {
+                    $invalid_status++;
+                    continue;
+                }
+
+                if ( $args['exclude_cancelled'] ) {
+                    $order_status = isset( $ticket['order_status'] ) ? sanitize_key( $ticket['order_status'] ) : '';
+                    if ( in_array( $order_status, array( 'cancelled', 'refunded', 'failed', 'pending', 'on-hold' ), true ) ) {
+                        $excluded_orders++;
+                        continue;
+                    }
+                }
+
+                $eligible[] = $ticket;
+            }
+
+            return array(
+                'tickets'          => array_values( $eligible ),
+                'total_source'     => count( $tickets ),
+                'excluded_status'  => $invalid_status,
+                'excluded_orders'  => $excluded_orders,
+            );
         }
 
         /**
@@ -2917,21 +3653,18 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 wp_die( esc_html__( 'Vous devez confirmer la vérification des participants.', 'loterie-manager' ) );
             }
 
-            $public_seed    = isset( $_POST['lm_public_seed'] ) ? sanitize_text_field( wp_unslash( $_POST['lm_public_seed'] ) ) : '';
-            $alternate_count = isset( $_POST['lm_alternate_count'] ) ? max( 0, absint( $_POST['lm_alternate_count'] ) ) : 0;
+            $public_seed      = isset( $_POST['lm_public_seed'] ) ? sanitize_text_field( wp_unslash( $_POST['lm_public_seed'] ) ) : '';
+            $alternate_count  = isset( $_POST['lm_alternate_count'] ) ? max( 0, min( 3, absint( $_POST['lm_alternate_count'] ) ) ) : 0;
+            $exclude_cancelled = ! empty( $_POST['lm_draw_exclude_cancelled'] );
 
-            if ( '' === $public_seed ) {
-                wp_die( esc_html__( 'L’aléa public est obligatoire pour assurer la traçabilité.', 'loterie-manager' ) );
-            }
+            $pool_data = $this->prepare_manual_draw_pool(
+                $loterie_id,
+                array(
+                    'exclude_cancelled' => $exclude_cancelled,
+                )
+            );
 
-            $stats  = $this->get_lottery_stats( $loterie_id, array( 'include_tickets' => true, 'force_refresh' => true, 'per_page' => -1 ) );
-            $pool   = isset( $stats['tickets_all'] ) ? $stats['tickets_all'] : array();
-            $pool   = array_values( array_filter(
-                $pool,
-                static function ( $ticket ) {
-                    return 'valid' === $ticket['status'];
-                }
-            ) );
+            $pool = $pool_data['tickets'];
 
             if ( empty( $pool ) ) {
                 wp_die( esc_html__( 'Aucun ticket valide disponible pour le tirage.', 'loterie-manager' ) );
@@ -2987,6 +3720,9 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 'ip'           => isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '',
                 'user_agent'   => isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : '',
                 'winners'      => $winners,
+                'options'      => array(
+                    'exclude_cancelled' => (bool) $exclude_cancelled,
+                ),
             );
 
             $checksum_source = $report;
