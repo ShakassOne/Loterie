@@ -63,6 +63,7 @@ Lorsque les critères sont remplis (tickets valides disponibles et loterie prêt
 
 ## Historique des versions
 
+- **1.5.1** : correction de l'affichage du chiffre d'affaires pour afficher uniquement la valeur formatée sans balises HTML WooCommerce.
 - **1.5.0** : refonte du dashboard admin en thème dark glassmorphism, nouvelles cartes KPI, graphe temporel, flux de tirage manuel en 3 étapes, export huissier contextualisé et timeline modernisée.
 - **1.4.0** : ajout du tableau de bord d’administration, du journal des actions, de l’export officiel et du tirage manuel ; amélioration de l’espace client avec filtres et statuts explicites.
 

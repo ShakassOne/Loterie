@@ -3,7 +3,7 @@
 Plugin Name: WinShirt Loterie Manager
 Plugin URI: https://github.com/ShakassOne/loterie-winshirt
 Description: Gestion des loteries pour WooCommerce.
-Version: 1.5.0
+Version: 1.5.1
 Author: Shakass Communication
 Author URI: https://shakass.com
 Text Domain: loterie-winshirt
@@ -1869,7 +1869,10 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             $amount = floatval( $amount );
 
             if ( function_exists( 'wc_price' ) ) {
-                return wc_price( $amount );
+                $formatted = wc_price( $amount );
+                $formatted = wp_strip_all_tags( $formatted );
+
+                return trim( html_entity_decode( $formatted, ENT_QUOTES, get_bloginfo( 'charset' ) ) );
             }
 
             $symbol = function_exists( 'get_woocommerce_currency_symbol' ) ? get_woocommerce_currency_symbol() : '€';
