@@ -3,7 +3,7 @@
 Plugin Name: WinShirt Loterie Manager
 Plugin URI: https://github.com/ShakassOne/loterie-winshirt
 Description: Gestion des loteries pour WooCommerce.
-Version: 1.5.1
+Version: 1.5.2
 Author: Shakass Communication
 Author URI: https://shakass.com
 Text Domain: loterie-winshirt
@@ -87,6 +87,13 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
          * @var array<int, array<string, mixed>>
          */
         private $lottery_stats_cache = array();
+
+        /**
+         * Cache for the most advanced loterie ID during a request lifecycle.
+         *
+         * @var int|null
+         */
+        private $most_advanced_loterie_id = null;
 
         /**
          * Bootstraps the plugin.
@@ -863,6 +870,51 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
         }
 
         /**
+         * Retrieves the most advanced loterie based on tickets sold.
+         *
+         * @return int Loterie post ID or 0 if none found.
+         */
+        private function get_most_advanced_loterie_id() {
+            if ( null !== $this->most_advanced_loterie_id ) {
+                return $this->most_advanced_loterie_id;
+            }
+
+            $query = new WP_Query(
+                array(
+                    'post_type'           => 'post',
+                    'post_status'         => 'publish',
+                    'posts_per_page'      => 1,
+                    'meta_key'            => self::META_TICKETS_SOLD,
+                    'orderby'             => 'meta_value_num',
+                    'order'               => 'DESC',
+                    'ignore_sticky_posts' => true,
+                    'no_found_rows'       => true,
+                    'fields'              => 'ids',
+                    'meta_query'          => array(
+                        array(
+                            'key'     => self::META_TICKETS_SOLD,
+                            'value'   => 0,
+                            'compare' => '>=',
+                            'type'    => 'NUMERIC',
+                        ),
+                    ),
+                )
+            );
+
+            $post_id = 0;
+
+            if ( $query->have_posts() ) {
+                $post_id = intval( $query->posts[0] );
+            }
+
+            wp_reset_postdata();
+
+            $this->most_advanced_loterie_id = $post_id;
+
+            return $this->most_advanced_loterie_id;
+        }
+
+        /**
          * Builds a reusable context for loterie display components.
          *
          * @param int $post_id Loterie post ID.
@@ -1007,7 +1059,15 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 $atts
             );
 
-            $context = $this->get_loterie_display_context( $atts['id'] );
+            $lottery_id = $atts['id'];
+
+            if ( 'most_advanced' === $lottery_id ) {
+                $lottery_id = $this->get_most_advanced_loterie_id();
+            }
+
+            $lottery_id = absint( $lottery_id );
+
+            $context = $this->get_loterie_display_context( $lottery_id );
             if ( empty( $context ) ) {
                 return '';
             }

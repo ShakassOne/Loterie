@@ -20,7 +20,7 @@ Le plugin **Loterie Manager** ajoute une couche de gestion de loteries aux sites
 
 ### Shortcode
 
-Utilisez `[lm_loterie id="123"]` pour afficher un résumé d'une loterie spécifique (remplacez `123` par l’ID de l’article). Sans paramètre `id`, le shortcode utilisera l’article courant dans la boucle.
+Utilisez `[lm_loterie id="123"]` pour afficher un résumé d'une loterie spécifique (remplacez `123` par l’ID de l’article). Sans paramètre `id`, le shortcode utilisera l’article courant dans la boucle. Pour afficher automatiquement la loterie la plus avancée (celle ayant vendu le plus de tickets), utilisez `[lm_loterie id="most_advanced"]`.
 
 Le shortcode `[lm_loterie_summary id="123"]` affiche désormais un bandeau coloré indiquant le jour écoulé depuis le lancement, le nombre d’articles encore disponibles et l’objectif total. Parfait pour insérer un rappel visuel percutant dans la description d’un produit.
 
@@ -63,6 +63,7 @@ Lorsque les critères sont remplis (tickets valides disponibles et loterie prêt
 
 ## Historique des versions
 
+- **1.5.2** : ajout d'un alias `id="most_advanced"` pour afficher automatiquement la loterie ayant vendu le plus de tickets.
 - **1.5.1** : correction de l'affichage du chiffre d'affaires pour afficher uniquement la valeur formatée sans balises HTML WooCommerce.
 - **1.5.0** : refonte du dashboard admin en thème dark glassmorphism, nouvelles cartes KPI, graphe temporel, flux de tirage manuel en 3 étapes, export huissier contextualisé et timeline modernisée.
 - **1.4.0** : ajout du tableau de bord d’administration, du journal des actions, de l’export officiel et du tirage manuel ; amélioration de l’espace client avec filtres et statuts explicites.
