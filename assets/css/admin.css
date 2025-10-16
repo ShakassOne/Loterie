@@ -353,7 +353,8 @@
 
 .lm-lottery-card__header h3 {
     margin: 6px 0 4px;
-    font-size: 18px;
+    font-size: 20px!important;
+    color: #00ff87!important;
 }
 
 .lm-lottery-card__header p {
