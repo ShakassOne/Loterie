@@ -3,7 +3,7 @@
 Plugin Name: WinShirt Loterie Manager
 Plugin URI: https://github.com/ShakassOne/loterie-winshirt
 Description: Gestion des loteries pour WooCommerce.
-Version: 1.5.3
+Version: 1.5.4
 Author: Shakass Communication
 Author URI: https://shakass.com
 Text Domain: loterie-winshirt
@@ -1077,10 +1077,10 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 );
             }
 
-            $participants_count = isset( $stats['unique_participants'] ) ? intval( $stats['unique_participants'] ) : $sold;
-            $participants_label = sprintf(
-                _n( '%d participant', '%d participants', $participants_count, 'loterie-manager' ),
-                $participants_count
+            $ticket_count       = $sold;
+            $ticket_count_label = sprintf(
+                _n( '%s ticket', '%s tickets', $ticket_count, 'loterie-manager' ),
+                number_format_i18n( $ticket_count )
             );
 
             $goal_label = $capacity > 0
@@ -1113,7 +1113,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 'elapsed_days_count' => $elapsed_days_count,
                 'lot_value_label'    => $lot_value_label,
                 'countdown_boxes'    => $countdown_boxes,
-                'participants_label' => $participants_label,
+                'ticket_count_label' => $ticket_count_label,
                 'goal_label'         => $goal_label,
                 'status_label'       => $status_label,
                 'status_class'       => $status_class,
@@ -1160,7 +1160,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             $is_featured        = $context['is_featured'];
             $lot_value_label    = $context['lot_value_label'];
             $countdown_boxes    = $context['countdown_boxes'];
-            $participants_label = $context['participants_label'];
+            $ticket_count_label = $context['ticket_count_label'];
             $goal_label         = $context['goal_label'];
             $progress           = $context['progress'];
             $formatted_draw_date= $context['formatted_draw_date'];
@@ -1212,7 +1212,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                                     <path d="M21 21V19C20.9993 18.1137 20.7044 17.2531 20.1614 16.5499C19.6184 15.8466 18.8572 15.3403 18 15.1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
                                     <path d="M16.5 5.1C17.3604 5.33864 18.1241 5.84529 18.6684 6.55097C19.2127 7.25665 19.5086 8.11976 19.5086 9.01C19.5086 9.90024 19.2127 10.7634 18.6684 11.4691C18.1241 12.1747 17.3604 12.6814 16.5 12.92" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
                                 </svg>
-                                <span class="lm-lottery-card__participants"><?php echo esc_html( $participants_label ); ?></span>
+                                <span class="lm-lottery-card__participants"><?php echo esc_html( $ticket_count_label ); ?></span>
                                 <?php if ( $goal_label ) : ?>
                                     <span class="lm-lottery-card__goal"><?php echo esc_html( $goal_label ); ?></span>
                                 <?php endif; ?>
