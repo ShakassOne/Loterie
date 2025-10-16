@@ -184,7 +184,8 @@
 
 .lm-card__header h2 {
     margin: 0;
-    font-size: 20px;
+    font-size: 20px!important;
+    color: #00ff87!important;
     font-weight: 600;
 }
 
