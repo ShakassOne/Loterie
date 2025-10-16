@@ -40,6 +40,85 @@
         window.alert(message);
     }
 
+    function normalizeLotteries(raw) {
+        if (!raw) {
+            return [];
+        }
+
+        if (Array.isArray(raw)) {
+            return raw
+                .map(function (entry) {
+                    if (!entry || typeof entry !== 'object') {
+                        return null;
+                    }
+
+                    var normalized = {};
+                    for (var key in entry) {
+                        if (Object.prototype.hasOwnProperty.call(entry, key)) {
+                            normalized[key] = entry[key];
+                        }
+                    }
+
+                    normalized.id = parseInt(normalized.id, 10);
+
+                    if (isNaN(normalized.id)) {
+                        return null;
+                    }
+
+                    return normalized;
+                })
+                .filter(function (entry) {
+                    return entry !== null;
+                });
+        }
+
+        if (typeof raw === 'string') {
+            var trimmed = raw.trim();
+
+            if (!trimmed.length) {
+                return [];
+            }
+
+            try {
+                return normalizeLotteries(JSON.parse(trimmed));
+            } catch (error) {
+                var ids = trimmed.split(',').map(function (value) {
+                    var id = parseInt(value, 10);
+                    return isNaN(id) ? null : id;
+                }).filter(function (value) {
+                    return value !== null;
+                });
+
+                return ids.map(function (id) {
+                    return {
+                        id: id,
+                        title: LoterieManager && LoterieManager.i18n && LoterieManager.i18n.default_lottery_label
+                            ? LoterieManager.i18n.default_lottery_label.replace('%d', id)
+                            : 'Loterie #' + id
+                    };
+                });
+            }
+        }
+
+        if (typeof raw === 'object') {
+            if (Array.isArray(raw.lotteries)) {
+                return normalizeLotteries(raw.lotteries);
+            }
+
+            var extracted = [];
+
+            for (var prop in raw) {
+                if (Object.prototype.hasOwnProperty.call(raw, prop)) {
+                    extracted.push(raw[prop]);
+                }
+            }
+
+            return normalizeLotteries(extracted);
+        }
+
+        return [];
+    }
+
     function closeModal() {
         $('.lm-modal-overlay').remove();
         $('body').removeClass('lm-modal-open');
@@ -62,7 +141,13 @@
             });
 
             var description = $('<div>');
-            description.append($('<strong>').text(lottery.title));
+            var title = lottery.title;
+
+            if (!title && window.LoterieManager && LoterieManager.i18n && LoterieManager.i18n.default_lottery_label) {
+                title = LoterieManager.i18n.default_lottery_label.replace('%d', lottery.id);
+            }
+
+            description.append($('<strong>').text(title || ''));
 
             option.append(checkbox).append(description);
             optionsWrapper.append(option);
@@ -105,10 +190,13 @@
             return true;
         }
 
-        var lotteries = dataContainer.data('lotteries');
-        if (!lotteries || !lotteries.length) {
+        var lotteries = normalizeLotteries(dataContainer.data('lotteries'));
+
+        if (!lotteries.length) {
             return true;
         }
+
+        dataContainer.data('lotteries', lotteries);
 
         if (lotteries.length === 1) {
             $form.find('.lm-lottery-selection').val(lotteries[0].id);

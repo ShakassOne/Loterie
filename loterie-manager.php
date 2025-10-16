@@ -3,7 +3,7 @@
 Plugin Name: WinShirt Loterie Manager
 Plugin URI: https://github.com/ShakassOne/loterie-winshirt
 Description: Gestion des loteries pour WooCommerce.
-Version: 1.5.2
+Version: 1.5.3
 Author: Shakass Communication
 Author URI: https://shakass.com
 Text Domain: loterie-winshirt
@@ -197,7 +197,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 'loterie-manager-frontend',
                 plugins_url( 'assets/js/frontend.js', __FILE__ ),
                 array( 'jquery' ),
-                '1.0.0',
+                '1.0.1',
                 true
             );
 
@@ -212,6 +212,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                         'cancel'          => __( 'Annuler', 'loterie-manager' ),
                         'ticket_limit_reached_single' => __( 'Vous ne pouvez sélectionner qu\'une loterie pour ce produit.', 'loterie-manager' ),
                         'ticket_limit_reached_plural' => __( 'Vous ne pouvez sélectionner que %s loteries pour ce produit.', 'loterie-manager' ),
+                        'default_lottery_label'       => __( 'Loterie #%d', 'loterie-manager' ),
                     ),
                 )
             );
@@ -300,6 +301,84 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
         }
 
         /**
+         * Parses raw selection data from requests into a flat list of loterie IDs.
+         *
+         * @param mixed $raw Raw selection payload (string, array or object).
+         *
+         * @return array<int>
+         */
+        private function parse_lottery_selection_input( $raw ) {
+            if ( is_array( $raw ) ) {
+                $values = $raw;
+            } elseif ( is_object( $raw ) ) {
+                $values = (array) $raw;
+            } else {
+                $values = array();
+
+                if ( is_string( $raw ) ) {
+                    $raw = trim( $raw );
+
+                    if ( '' !== $raw ) {
+                        $decoded = null;
+
+                        if ( '[' === $raw[0] || '{' === $raw[0] ) {
+                            $decoded = json_decode( $raw, true );
+                        }
+
+                        if ( is_array( $decoded ) || is_object( $decoded ) ) {
+                            $values = (array) $decoded;
+                        } else {
+                            $values = explode( ',', $raw );
+                        }
+                    }
+                }
+            }
+
+            $flattened = $this->flatten_lottery_selection_values( $values );
+
+            $ids = array_map( 'absint', $flattened );
+            $ids = array_filter(
+                $ids,
+                static function ( $value ) {
+                    return $value > 0;
+                }
+            );
+
+            return array_values( array_unique( $ids ) );
+        }
+
+        /**
+         * Flattens selection structures to raw scalar values.
+         *
+         * @param mixed $values Raw selection structure.
+         *
+         * @return array<int|string>
+         */
+        private function flatten_lottery_selection_values( $values ) {
+            $result = array();
+
+            foreach ( (array) $values as $value ) {
+                if ( is_array( $value ) ) {
+                    if ( isset( $value['id'] ) ) {
+                        $result[] = $value['id'];
+                    } else {
+                        $result = array_merge( $result, $this->flatten_lottery_selection_values( $value ) );
+                    }
+                } elseif ( is_object( $value ) ) {
+                    if ( isset( $value->id ) ) {
+                        $result[] = $value->id;
+                    } else {
+                        $result = array_merge( $result, $this->flatten_lottery_selection_values( (array) $value ) );
+                    }
+                } elseif ( is_scalar( $value ) ) {
+                    $result[] = $value;
+                }
+            }
+
+            return $result;
+        }
+
+        /**
          * Validates loterie selection when adding a product to cart.
          *
          * @param bool $passed     Validation flag.
@@ -315,8 +394,9 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 return $passed;
             }
 
-            $selection_raw = isset( $_POST['lm_lottery_selection'] ) ? sanitize_text_field( wp_unslash( $_POST['lm_lottery_selection'] ) ) : '';
-            $selection     = array_filter( array_map( 'absint', explode( ',', $selection_raw ) ) );
+            $selection = $this->parse_lottery_selection_input(
+                isset( $_POST['lm_lottery_selection'] ) ? wp_unslash( $_POST['lm_lottery_selection'] ) : array()
+            );
 
             if ( empty( $selection ) ) {
                 if ( 1 === count( $targets ) ) {
@@ -408,8 +488,9 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
          * @return array
          */
         public function append_cart_item_data( $cart_item_data, $product_id, $variation_id ) {
-            $selection_raw = isset( $_POST['lm_lottery_selection'] ) ? sanitize_text_field( wp_unslash( $_POST['lm_lottery_selection'] ) ) : '';
-            $selection     = array_filter( array_map( 'absint', explode( ',', $selection_raw ) ) );
+            $selection = $this->parse_lottery_selection_input(
+                isset( $_POST['lm_lottery_selection'] ) ? wp_unslash( $_POST['lm_lottery_selection'] ) : array()
+            );
 
             if ( ! empty( $selection ) ) {
                 $cart_item_data['lm_lottery_selection'] = array_values( $selection );
