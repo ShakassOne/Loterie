@@ -3,7 +3,7 @@
 Plugin Name: WinShirt Loterie Manager
 Plugin URI: https://github.com/ShakassOne/loterie-winshirt
 Description: Gestion des loteries pour WooCommerce.
-Version: 1.5.4
+Version: 1.5.5
 Author: Shakass Communication
 Author URI: https://shakass.com
 Text Domain: loterie-winshirt
@@ -157,8 +157,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             add_action( 'add_meta_boxes', array( $this, 'register_loterie_meta_box' ) );
             add_action( 'save_post_post', array( $this, 'save_loterie_meta' ), 10, 2 );
 
-            // Frontend overlays & shortcodes.
-            add_filter( 'post_thumbnail_html', array( $this, 'inject_loterie_overlay' ), 10, 5 );
+            // Frontend shortcodes.
             add_shortcode( 'lm_loterie', array( $this, 'render_loterie_shortcode' ) );
             add_shortcode( 'lm_loterie_summary', array( $this, 'render_loterie_summary_shortcode' ) );
 
@@ -854,100 +853,6 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
 
             $end_date = isset( $_POST['lm_end_date'] ) ? sanitize_text_field( wp_unslash( $_POST['lm_end_date'] ) ) : '';
             update_post_meta( $post_id, self::META_END_DATE, $end_date );
-        }
-
-        /**
-         * Merges the loterie overlay into the post thumbnail HTML when needed.
-         *
-         * @param string $html               Thumbnail HTML.
-         * @param int    $post_id            Post ID.
-         * @param int    $post_thumbnail_id  Attachment ID.
-         * @param string $size               Image size.
-         * @param mixed  $attr               Attributes.
-         *
-         * @return string
-         */
-        public function inject_loterie_overlay( $html, $post_id, $post_thumbnail_id, $size, $attr ) {
-            if ( is_admin() ) {
-                return $html;
-            }
-
-            if ( empty( $html ) ) {
-                return $html;
-            }
-
-            $classes = '';
-            if ( is_array( $attr ) ) {
-                if ( isset( $attr['class'] ) ) {
-                    $classes = $attr['class'];
-                } else {
-                    $classes = implode( ' ', array_map( 'strval', $attr ) );
-                }
-            } elseif ( is_string( $attr ) ) {
-                $classes = $attr;
-            }
-
-            if ( false !== strpos( $classes, 'lm-lottery-card__image' ) ) {
-                return $html;
-            }
-
-            $post_id = $post_id ? $post_id : get_the_ID();
-            if ( ! $post_id ) {
-                return $html;
-            }
-
-            $overlay = $this->get_loterie_overlay_markup( $post_id );
-            if ( '' === $overlay ) {
-                return $html;
-            }
-
-            return sprintf(
-                '<div class="lm-loterie-thumbnail">%1$s%2$s</div>',
-                $html,
-                $overlay
-            );
-        }
-
-        /**
-         * Generates the HTML markup for the loterie overlay.
-         *
-         * @param int $post_id Post ID.
-         *
-         * @return string
-         */
-        private function get_loterie_overlay_markup( $post_id ) {
-            $capacity = intval( get_post_meta( $post_id, self::META_TICKET_CAPACITY, true ) );
-            if ( $capacity <= 0 ) {
-                return '';
-            }
-
-            $sold     = intval( get_post_meta( $post_id, self::META_TICKETS_SOLD, true ) );
-            $progress = $capacity > 0 ? min( 100, round( ( $sold / max( $capacity, 1 ) ) * 100, 2 ) ) : 0;
-            $lot      = get_post_meta( $post_id, self::META_LOT_DESCRIPTION, true );
-            $end_date = get_post_meta( $post_id, self::META_END_DATE, true );
-
-            ob_start();
-            ?>
-            <div class="lm-loterie-overlay" aria-live="polite">
-                <div class="lm-overlay-header">
-                    <span class="lm-overlay-title"><?php esc_html_e( 'Progression de la loterie', 'loterie-manager' ); ?></span>
-                    <?php if ( ! empty( $end_date ) ) : ?>
-                        <span class="lm-overlay-date"><?php echo esc_html( sprintf( __( 'Fin le %s', 'loterie-manager' ), date_i18n( get_option( 'date_format' ), strtotime( $end_date ) ) ) ); ?></span>
-                    <?php endif; ?>
-                </div>
-                <div class="lm-overlay-progress">
-                    <div class="lm-overlay-bar" style="width: <?php echo esc_attr( $progress ); ?>%;"></div>
-                </div>
-                <div class="lm-overlay-stats">
-                    <span class="lm-overlay-count"><?php echo esc_html( sprintf( __( '%1$d tickets vendus sur %2$d', 'loterie-manager' ), $sold, $capacity ) ); ?></span>
-                    <?php if ( ! empty( $lot ) ) : ?>
-                        <span class="lm-overlay-prize"><?php echo esc_html( $lot ); ?></span>
-                    <?php endif; ?>
-                </div>
-            </div>
-            <?php
-
-            return (string) ob_get_clean();
         }
 
         /**

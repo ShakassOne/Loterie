@@ -16,7 +16,7 @@ Le plugin **Loterie Manager** ajoute une couche de gestion de loteries aux sites
    - **Description du lot** : informations sur le lot mis en jeu.
    - **Date de fin** : échéance de la loterie (affichée sur le site et dans l'espace client).
 3. Publiez l'article pour qu'il devienne disponible comme loterie (les brouillons, articles privés ou planifiés ne seront pas proposés lors de la sélection sur les produits).
-4. Vérifiez que la métabox affiche bien les valeurs enregistrées : elles seront utilisées pour alimenter le popup et l'overlay de progression.
+4. Vérifiez que la métabox affiche bien les valeurs enregistrées : elles seront utilisées pour alimenter le popup de sélection.
 
 ### Shortcode
 
@@ -40,7 +40,6 @@ Le shortcode `[lm_loterie_summary id="123"]` affiche désormais un bandeau color
 ## Expérience client
 
 - **Popup de sélection** : après avoir cliqué sur « Ajouter au panier », un popup liste les loteries disponibles pour le produit. Le client doit en sélectionner au moins une pour finaliser l’ajout.
-- **Overlay sur les articles** : chaque article-loterie affiche une barre de progression indiquant le nombre de tickets vendus par rapport à la capacité maximale ainsi que la date de fin et le lot.
 - **Onglet « Mes tickets »** : dans l’espace « Mon compte », un nouvel onglet affiche le total de tickets par loterie. Le client peut réaffecter ses tickets vers une autre loterie éligible.
 
 ## Réaffectation des tickets
@@ -61,8 +60,9 @@ Chaque action sensible (export, tirage, modification des réglages de réaffecta
 
 Lorsque les critères sont remplis (tickets valides disponibles et loterie prête), un tirage manuel peut être lancé. L’interface impose la saisie d’un aléa public, offre la génération d’un rapport horodaté et verrouille automatiquement les tickets gagnants/suppléants. Le rapport JSON (checksum inclus) est téléchargeable pour constituer un dossier légal.
 
--## Historique des versions
+## Historique des versions
 
+- **1.5.5** : suppression de l'overlay sur les vignettes de loterie pour alléger la présentation des articles.
 - **1.5.4** : affichage du nombre total de tickets vendus sur les cartes front-end à la place des participants uniques.
 - **1.5.3** : correction de la détection des sélections de loterie lors de l'ajout au panier pour rétablir la création des tickets et amélioration de la compatibilité front-end.
 - **1.5.2** : ajout d'un alias `id="most_advanced"` pour afficher automatiquement la loterie ayant vendu le plus de tickets.
@@ -72,7 +72,7 @@ Lorsque les critères sont remplis (tickets valides disponibles et loterie prêt
 
 ## Assets & Traductions
 
-- `assets/css/frontend.css` : styles de l’overlay, du popup et du tableau « Mes tickets ».
+- `assets/css/frontend.css` : styles du popup et du tableau « Mes tickets ».
 - `assets/js/frontend.js` : logique du popup de sélection et interactions front-end.
 - `languages/loterie-manager-fr_FR.po` : base de traduction française (la langue par défaut du plugin est déjà en français, mais le fichier facilite les personnalisations).
 
