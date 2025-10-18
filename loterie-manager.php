@@ -3,7 +3,7 @@
 Plugin Name: WinShirt Loterie Manager
 Plugin URI: https://github.com/ShakassOne/loterie-winshirt
 Description: Gestion des loteries pour WooCommerce.
-Version: 1.5.5
+Version: 1.5.6
 Author: Shakass Communication
 Author URI: https://shakass.com
 Text Domain: loterie-winshirt
@@ -149,6 +149,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             add_filter( 'woocommerce_order_item_display_meta_key', array( $this, 'filter_order_item_meta_key' ), 10, 3 );
             add_filter( 'woocommerce_order_item_display_meta_value', array( $this, 'filter_order_item_meta_value' ), 10, 3 );
             add_filter( 'woocommerce_hidden_order_itemmeta', array( $this, 'hide_order_item_meta' ) );
+            add_action( 'woocommerce_email_after_order_table', array( $this, 'render_email_loterie_thumbnails' ), 15, 4 );
             add_action( 'woocommerce_order_status_completed', array( $this, 'sync_order_ticket_counts' ) );
             add_action( 'woocommerce_order_status_processing', array( $this, 'sync_order_ticket_counts' ) );
             add_action( 'woocommerce_order_status_changed', array( $this, 'handle_order_status_change' ), 10, 4 );
@@ -705,6 +706,160 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             }
 
             return $names;
+        }
+
+        /**
+         * Outputs selected loterie thumbnails in WooCommerce emails.
+         *
+         * @param WC_Order        $order         Order instance.
+         * @param bool            $sent_to_admin Whether the email is sent to an admin.
+         * @param bool            $plain_text    Whether the email is in plain text mode.
+         * @param WC_Email|string $email         Email object or identifier.
+         */
+        public function render_email_loterie_thumbnails( $order, $sent_to_admin, $plain_text, $email ) {
+            if ( ! $order || ! is_a( $order, 'WC_Order' ) ) {
+                return;
+            }
+
+            $loteries = $this->get_order_loterie_details( $order );
+
+            if ( empty( $loteries ) ) {
+                return;
+            }
+
+            $heading = __( 'Loteries sélectionnées', 'loterie-manager' );
+
+            if ( $plain_text ) {
+                echo PHP_EOL . $heading . PHP_EOL; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+
+                foreach ( $loteries as $loterie ) {
+                    $line = '- ' . $loterie['title'];
+
+                    if ( ! empty( $loterie['permalink'] ) ) {
+                        $line .= ' <' . esc_url_raw( $loterie['permalink'] ) . '>';
+                    }
+
+                    echo $line . PHP_EOL; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+                }
+
+                echo PHP_EOL; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+
+                return;
+            }
+
+            echo '<div class="lm-email-loteries" style="margin:24px 0 0;">'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+            echo '<p style="margin:0 0 12px;font-weight:600;font-size:16px;color:#111;">' . esc_html( $heading ) . '</p>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+            echo '<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="width:100%;border-collapse:collapse;">'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+
+            $index = 0;
+
+            foreach ( $loteries as $loterie ) {
+                if ( 0 === $index % 3 ) {
+                    if ( 0 !== $index ) {
+                        echo '</tr>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+                    }
+
+                    echo '<tr>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+                }
+
+                $cell_styles = 'padding:0 12px 12px 0;text-align:center;vertical-align:top;';
+                echo '<td style="' . esc_attr( $cell_styles ) . '">'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+
+                $link_open  = '';
+                $link_close = '';
+
+                if ( ! empty( $loterie['permalink'] ) ) {
+                    $link_open  = '<a href="' . esc_url( $loterie['permalink'] ) . '" style="text-decoration:none;color:#111;">';
+                    $link_close = '</a>';
+                }
+
+                $image_styles = 'display:block;border-radius:8px;width:120px;max-width:100%;height:auto;border:1px solid #e5e5e5;margin:0 auto 8px;';
+                $image_html   = '';
+
+                if ( ! empty( $loterie['image_url'] ) ) {
+                    $image_html = '<img src="' . esc_url( $loterie['image_url'] ) . '" alt="' . esc_attr( $loterie['title'] ) . '" style="' . esc_attr( $image_styles ) . '" />';
+                }
+
+                echo $link_open . $image_html . '<span style="display:block;font-size:13px;line-height:1.4;margin:0;color:#111;">' . esc_html( $loterie['title'] ) . '</span>' . $link_close; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+                echo '</td>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+
+                $index++;
+            }
+
+            if ( 0 !== $index ) {
+                $remaining = $index % 3;
+
+                if ( 0 !== $remaining ) {
+                    for ( $i = $remaining; $i < 3; $i++ ) {
+                        echo '<td style="padding:0 12px 12px 0;"></td>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+                    }
+                }
+
+                echo '</tr>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+            }
+
+            echo '</table></div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+        }
+
+        /**
+         * Collects selected loterie details for a given order.
+         *
+         * @param WC_Order $order Order instance.
+         *
+         * @return array<int, array<string, string>>
+         */
+        private function get_order_loterie_details( $order ) {
+            if ( ! $order || ! is_a( $order, 'WC_Order' ) ) {
+                return array();
+            }
+
+            $details = array();
+
+            foreach ( $order->get_items() as $item ) {
+                $selection = (array) $item->get_meta( 'lm_lottery_selection', true );
+                $selection = array_map( 'intval', $selection );
+                $selection = array_filter(
+                    array_unique( $selection ),
+                    static function ( $value ) {
+                        return $value > 0;
+                    }
+                );
+
+                if ( empty( $selection ) ) {
+                    continue;
+                }
+
+                foreach ( $selection as $loterie_id ) {
+                    if ( isset( $details[ $loterie_id ] ) ) {
+                        continue;
+                    }
+
+                    $post = get_post( $loterie_id );
+
+                    if ( ! $post || 'publish' !== $post->post_status ) {
+                        continue;
+                    }
+
+                    $title = get_the_title( $post );
+                    $title = '' !== $title ? wp_strip_all_tags( $title ) : sprintf( __( 'Loterie #%d', 'loterie-manager' ), $loterie_id );
+
+                    $image_url = get_the_post_thumbnail_url( $post, 'woocommerce_thumbnail' );
+
+                    if ( ! $image_url && function_exists( 'wc_placeholder_img_src' ) ) {
+                        $image_url = wc_placeholder_img_src();
+                    }
+
+                    $permalink = get_permalink( $post );
+
+                    $details[ $loterie_id ] = array(
+                        'title'     => $title,
+                        'permalink' => $permalink ? $permalink : '',
+                        'image_url' => $image_url ? $image_url : '',
+                    );
+                }
+            }
+
+            return $details;
         }
 
         /**
