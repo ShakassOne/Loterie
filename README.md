@@ -24,6 +24,8 @@ Utilisez `[lm_loterie id="123"]` pour afficher un résumé d'une loterie spécif
 
 Le shortcode `[lm_loterie_summary id="123"]` affiche désormais un bandeau coloré indiquant le jour écoulé depuis le lancement, le nombre d’articles encore disponibles et l’objectif total. Parfait pour insérer un rappel visuel percutant dans la description d’un produit.
 
+Le shortcode `[lm_loterie_grid]` affiche automatiquement toutes les loteries publiées sous forme de grille responsive. Il accepte plusieurs attributs optionnels (`posts_per_page`, `orderby`, `order`, `category`, `ids`, `exclude`, `status`, `empty_message`) pour filtrer ou personnaliser la liste rendue. Utilisez également `columns`, `columns_tablet` et `columns_mobile` pour définir respectivement le nombre de cartes par ligne sur desktop, tablette et mobile (par défaut la grille revient à trois colonnes sur tablette et à une colonne sur mobile lorsqu’un nombre de colonnes desktop est fourni).
+
 > ℹ️ **Comment est calculé le « Jour » ?**
 >
 > Le badge « Jour X » correspond désormais au nombre de jours écoulés depuis la publication de l’article-loterie. Le plugin récupère la date de création de l’article, calcule la différence avec l’heure actuelle (`current_time('timestamp')`), puis ajoute 1 pour afficher « Jour 1 » le jour du lancement, « Jour 2 » le lendemain, etc. Pour remettre le compteur à zéro, modifiez la date de publication de l’article (onglet **Publier** → lien **Modifier** à côté de la date) puis enregistrez : le bandeau reflètera immédiatement cette nouvelle date de départ.
@@ -62,6 +64,8 @@ Lorsque les critères sont remplis (tickets valides disponibles et loterie prêt
 
 ## Historique des versions
 
+- **1.5.8** : ajout des attributs `columns`, `columns_tablet` et `columns_mobile` pour configurer le nombre de cartes par ligne dans le shortcode `[lm_loterie_grid]`.
+- **1.5.7** : nouveau shortcode `[lm_loterie_grid]` pour afficher toutes les loteries en grille responsive.
 - **1.5.6** : ajout des miniatures des loteries sélectionnées dans les e-mails de confirmation WooCommerce.
 - **1.5.5** : suppression de l'overlay sur les vignettes de loterie pour alléger la présentation des articles.
 - **1.5.4** : affichage du nombre total de tickets vendus sur les cartes front-end à la place des participants uniques.

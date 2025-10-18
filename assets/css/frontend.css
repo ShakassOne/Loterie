@@ -172,6 +172,56 @@
     background: var(--lm-card-bg);
 }
 
+.lm-lottery-grid {
+    --lm-grid-min-width: 260px;
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(var(--lm-grid-min-width, 260px), 1fr));
+    margin: 2rem 0;
+}
+
+.lm-lottery-grid--has-config {
+    grid-template-columns: repeat(var(--lm-grid-columns, auto-fit), minmax(var(--lm-grid-min-width, 0px), 1fr));
+}
+
+@media (max-width: 1024px) {
+    .lm-lottery-grid--has-config {
+        grid-template-columns: repeat(
+            var(--lm-grid-columns-tablet, var(--lm-grid-columns, auto-fit)),
+            minmax(var(--lm-grid-min-width-tablet, var(--lm-grid-min-width, 0px)), 1fr)
+        );
+    }
+}
+
+@media (max-width: 640px) {
+    .lm-lottery-grid--has-config {
+        grid-template-columns: repeat(
+            var(--lm-grid-columns-mobile, var(--lm-grid-columns-tablet, var(--lm-grid-columns, auto-fit))),
+            minmax(
+                var(--lm-grid-min-width-mobile, var(--lm-grid-min-width-tablet, var(--lm-grid-min-width, 0px))),
+                1fr
+            )
+        );
+    }
+}
+
+.lm-lottery-grid__item {
+    display: flex;
+}
+
+.lm-lottery-grid__item .lm-lottery-card {
+    width: 100%;
+}
+
+.lm-lottery-grid--empty {
+    margin: 2rem 0;
+    text-align: center;
+}
+
+.lm-lottery-grid--empty p {
+    margin: 0;
+}
+
 .lm-lottery-card__media {
     position: relative;
     overflow: hidden;
