@@ -3,7 +3,7 @@
 Plugin Name: WinShirt Loterie Manager
 Plugin URI: https://github.com/ShakassOne/loterie-winshirt
 Description: Gestion des loteries pour WooCommerce.
-Version: 1.5.7
+Version: 1.5.8
 Author: Shakass Communication
 Author URI: https://shakass.com
 Text Domain: loterie-winshirt
@@ -1358,6 +1358,9 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                     'exclude'        => '',
                     'status'         => 'publish',
                     'empty_message'  => __( 'Aucune loterie disponible pour le moment.', 'loterie-manager' ),
+                    'columns'        => '',
+                    'columns_tablet' => '',
+                    'columns_mobile' => '',
                 ),
                 $atts,
                 'lm_loterie_grid'
@@ -1410,6 +1413,28 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 }
             }
 
+            $normalize_columns = static function( $value ) {
+                $columns = absint( $value );
+
+                if ( $columns < 1 ) {
+                    return 0;
+                }
+
+                return min( $columns, 6 );
+            };
+
+            $columns        = $normalize_columns( $atts['columns'] );
+            $columns_tablet = $normalize_columns( $atts['columns_tablet'] );
+            $columns_mobile = $normalize_columns( $atts['columns_mobile'] );
+
+            if ( $columns > 0 && 0 === $columns_tablet ) {
+                $columns_tablet = min( $columns, 3 );
+            }
+
+            if ( ( $columns > 0 || $columns_tablet > 0 ) && 0 === $columns_mobile ) {
+                $columns_mobile = 1;
+            }
+
             $query = new WP_Query( $query_args );
 
             $cards = array();
@@ -1441,9 +1466,49 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 );
             }
 
+            $grid_classes = array( 'lm-lottery-grid' );
+            $grid_styles  = array();
+
+            if ( $columns > 0 || $columns_tablet > 0 || $columns_mobile > 0 ) {
+                $grid_classes[] = 'lm-lottery-grid--has-config';
+            }
+
+            if ( $columns > 0 ) {
+                $grid_styles[] = '--lm-grid-columns: ' . $columns;
+                $grid_styles[] = '--lm-grid-min-width: 0px';
+            }
+
+            if ( $columns_tablet > 0 ) {
+                $grid_styles[] = '--lm-grid-columns-tablet: ' . $columns_tablet;
+                $grid_styles[] = '--lm-grid-min-width-tablet: 0px';
+            }
+
+            if ( $columns_mobile > 0 ) {
+                $grid_styles[] = '--lm-grid-columns-mobile: ' . $columns_mobile;
+                $grid_styles[] = '--lm-grid-min-width-mobile: 0px';
+            }
+
+            $grid_attributes = array(
+                'class' => implode( ' ', array_map( 'sanitize_html_class', $grid_classes ) ),
+            );
+
+            if ( ! empty( $grid_styles ) ) {
+                $grid_attributes['style'] = implode( '; ', $grid_styles );
+            }
+
+            $attributes_string = '';
+
+            foreach ( $grid_attributes as $attribute => $value ) {
+                if ( '' === $value ) {
+                    continue;
+                }
+
+                $attributes_string .= sprintf( ' %s="%s"', $attribute, esc_attr( $value ) );
+            }
+
             ob_start();
             ?>
-            <div class="lm-lottery-grid">
+            <div<?php echo $attributes_string; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
                 <?php foreach ( $cards as $card_html ) : ?>
                     <div class="lm-lottery-grid__item">
                         <?php echo $card_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
