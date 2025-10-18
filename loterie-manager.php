@@ -3,7 +3,7 @@
 Plugin Name: WinShirt Loterie Manager
 Plugin URI: https://github.com/ShakassOne/loterie-winshirt
 Description: Gestion des loteries pour WooCommerce.
-Version: 1.5.6
+Version: 1.5.7
 Author: Shakass Communication
 Author URI: https://shakass.com
 Text Domain: loterie-winshirt
@@ -161,6 +161,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             // Frontend shortcodes.
             add_shortcode( 'lm_loterie', array( $this, 'render_loterie_shortcode' ) );
             add_shortcode( 'lm_loterie_summary', array( $this, 'render_loterie_summary_shortcode' ) );
+            add_shortcode( 'lm_loterie_grid', array( $this, 'render_loterie_grid_shortcode' ) );
 
             // Account area.
             add_filter( 'woocommerce_account_menu_items', array( $this, 'register_account_menu' ) );
@@ -1186,46 +1187,30 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
         }
 
         /**
-         * Renders loterie data via shortcode.
+         * Renders the HTML card for a loterie based on its context.
          *
-         * @param array $atts Shortcode attributes.
+         * @param array<string, mixed> $context Loterie context data.
          *
          * @return string
          */
-        public function render_loterie_shortcode( $atts ) {
-            $atts = shortcode_atts(
-                array(
-                    'id' => get_the_ID(),
-                ),
-                $atts
-            );
-
-            $lottery_id = $atts['id'];
-
-            if ( 'most_advanced' === $lottery_id ) {
-                $lottery_id = $this->get_most_advanced_loterie_id();
-            }
-
-            $lottery_id = absint( $lottery_id );
-
-            $context = $this->get_loterie_display_context( $lottery_id );
-            if ( empty( $context ) ) {
+        private function render_loterie_card( $context ) {
+            if ( empty( $context ) || empty( $context['post_id'] ) ) {
                 return '';
             }
 
-            $post_id            = $context['post_id'];
-            $thumbnail          = $context['thumbnail'];
-            $status_label       = $context['status_label'];
-            $status_class       = $context['status_class'];
-            $is_featured        = $context['is_featured'];
-            $lot_value_label    = $context['lot_value_label'];
-            $countdown_boxes    = $context['countdown_boxes'];
-            $ticket_count_label = $context['ticket_count_label'];
-            $goal_label         = $context['goal_label'];
-            $progress           = $context['progress'];
-            $formatted_draw_date= $context['formatted_draw_date'];
-            $permalink          = $context['permalink'];
-            $title              = $context['title'];
+            $post_id            = absint( $context['post_id'] );
+            $thumbnail          = isset( $context['thumbnail'] ) ? $context['thumbnail'] : '';
+            $status_label       = isset( $context['status_label'] ) ? $context['status_label'] : '';
+            $status_class       = isset( $context['status_class'] ) ? $context['status_class'] : '';
+            $is_featured        = ! empty( $context['is_featured'] );
+            $lot_value_label    = isset( $context['lot_value_label'] ) ? $context['lot_value_label'] : '';
+            $countdown_boxes    = isset( $context['countdown_boxes'] ) ? (array) $context['countdown_boxes'] : array();
+            $ticket_count_label = isset( $context['ticket_count_label'] ) ? $context['ticket_count_label'] : '';
+            $goal_label         = isset( $context['goal_label'] ) ? $context['goal_label'] : '';
+            $progress           = isset( $context['progress'] ) ? floatval( $context['progress'] ) : 0.0;
+            $formatted_draw_date= isset( $context['formatted_draw_date'] ) ? $context['formatted_draw_date'] : '';
+            $permalink          = isset( $context['permalink'] ) ? $context['permalink'] : '';
+            $title              = isset( $context['title'] ) ? $context['title'] : '';
 
             ob_start();
             ?>
@@ -1243,23 +1228,30 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                             }
                             ?>
                         </div>
-                        <span class="lm-lottery-card__badge lm-lottery-card__badge--status <?php echo esc_attr( $status_class ); ?>"><?php echo esc_html( $status_label ); ?></span>
+                        <?php if ( $status_label ) : ?>
+                            <span class="lm-lottery-card__badge lm-lottery-card__badge--status <?php echo esc_attr( $status_class ); ?>"><?php echo esc_html( $status_label ); ?></span>
+                        <?php endif; ?>
                         <?php if ( $is_featured ) : ?>
                             <span class="lm-lottery-card__badge lm-lottery-card__badge--featured"><?php esc_html_e( 'En vedette', 'loterie-manager' ); ?></span>
                         <?php endif; ?>
                         <span class="lm-lottery-card__gradient" aria-hidden="true"></span>
                         <div class="lm-lottery-card__info">
-                            <h3 class="lm-lottery-card__title"><?php echo esc_html( $title ); ?></h3>
+                            <?php if ( $title ) : ?>
+                                <h3 class="lm-lottery-card__title"><?php echo esc_html( $title ); ?></h3>
+                            <?php endif; ?>
                             <?php if ( $lot_value_label ) : ?>
                                 <div class="lm-lottery-card__value"><?php echo esc_html( $lot_value_label ); ?></div>
                             <?php endif; ?>
 
                             <?php if ( ! empty( $countdown_boxes ) ) : ?>
                                 <div class="lm-lottery-card__countdown" role="status" aria-live="polite">
-                                    <?php foreach ( $countdown_boxes as $box ) : ?>
+                                    <?php foreach ( $countdown_boxes as $box ) :
+                                        $value = isset( $box['value'] ) ? $box['value'] : '';
+                                        $label = isset( $box['label'] ) ? $box['label'] : '';
+                                        ?>
                                         <div class="lm-lottery-card__countdown-box">
-                                            <div class="lm-lottery-card__countdown-value"><?php echo esc_html( $box['value'] ); ?></div>
-                                            <div class="lm-lottery-card__countdown-label"><?php echo esc_html( $box['label'] ); ?></div>
+                                            <div class="lm-lottery-card__countdown-value"><?php echo esc_html( $value ); ?></div>
+                                            <div class="lm-lottery-card__countdown-label"><?php echo esc_html( $label ); ?></div>
                                         </div>
                                     <?php endforeach; ?>
                                 </div>
@@ -1272,7 +1264,9 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                                     <path d="M21 21V19C20.9993 18.1137 20.7044 17.2531 20.1614 16.5499C19.6184 15.8466 18.8572 15.3403 18 15.1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
                                     <path d="M16.5 5.1C17.3604 5.33864 18.1241 5.84529 18.6684 6.55097C19.2127 7.25665 19.5086 8.11976 19.5086 9.01C19.5086 9.90024 19.2127 10.7634 18.6684 11.4691C18.1241 12.1747 17.3604 12.6814 16.5 12.92" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
                                 </svg>
-                                <span class="lm-lottery-card__participants"><?php echo esc_html( $ticket_count_label ); ?></span>
+                                <?php if ( $ticket_count_label ) : ?>
+                                    <span class="lm-lottery-card__participants"><?php echo esc_html( $ticket_count_label ); ?></span>
+                                <?php endif; ?>
                                 <?php if ( $goal_label ) : ?>
                                     <span class="lm-lottery-card__goal"><?php echo esc_html( $goal_label ); ?></span>
                                 <?php endif; ?>
@@ -1310,6 +1304,152 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                     </div>
                 </div>
             </article>
+            <?php
+
+            return (string) ob_get_clean();
+        }
+
+        /**
+         * Renders loterie data via shortcode.
+         *
+         * @param array $atts Shortcode attributes.
+         *
+         * @return string
+         */
+        public function render_loterie_shortcode( $atts ) {
+            $atts = shortcode_atts(
+                array(
+                    'id' => get_the_ID(),
+                ),
+                $atts
+            );
+
+            $lottery_id = $atts['id'];
+
+            if ( 'most_advanced' === $lottery_id ) {
+                $lottery_id = $this->get_most_advanced_loterie_id();
+            }
+
+            $lottery_id = absint( $lottery_id );
+
+            $context = $this->get_loterie_display_context( $lottery_id );
+            if ( empty( $context ) ) {
+                return '';
+            }
+
+            return $this->render_loterie_card( $context );
+        }
+
+        /**
+         * Renders a grid of loteries via shortcode.
+         *
+         * @param array $atts Shortcode attributes.
+         *
+         * @return string
+         */
+        public function render_loterie_grid_shortcode( $atts ) {
+            $atts = shortcode_atts(
+                array(
+                    'posts_per_page' => -1,
+                    'orderby'        => 'date',
+                    'order'          => 'DESC',
+                    'category'       => '',
+                    'ids'            => '',
+                    'exclude'        => '',
+                    'status'         => 'publish',
+                    'empty_message'  => __( 'Aucune loterie disponible pour le moment.', 'loterie-manager' ),
+                ),
+                $atts,
+                'lm_loterie_grid'
+            );
+
+            $posts_per_page = intval( $atts['posts_per_page'] );
+            if ( 0 === $posts_per_page ) {
+                $posts_per_page = -1;
+            }
+
+            $allowed_orderby = array( 'date', 'title', 'modified', 'menu_order', 'rand' );
+            $orderby         = in_array( $atts['orderby'], $allowed_orderby, true ) ? $atts['orderby'] : 'date';
+
+            $order = strtoupper( $atts['order'] );
+            $order = in_array( $order, array( 'ASC', 'DESC' ), true ) ? $order : 'DESC';
+
+            $statuses = array_filter( array_map( 'trim', explode( ',', (string) $atts['status'] ) ) );
+            if ( empty( $statuses ) ) {
+                $statuses = array( 'publish' );
+            }
+
+            $query_args = array(
+                'post_type'           => 'post',
+                'post_status'         => $statuses,
+                'posts_per_page'      => $posts_per_page,
+                'orderby'             => $orderby,
+                'ignore_sticky_posts' => true,
+                'no_found_rows'       => true,
+            );
+
+            if ( 'rand' !== $orderby ) {
+                $query_args['order'] = $order;
+            }
+
+            $ids = array_filter( array_map( 'absint', preg_split( '/[\s,]+/', (string) $atts['ids'] ) ) );
+            if ( ! empty( $ids ) ) {
+                $query_args['post__in'] = $ids;
+                $query_args['orderby']  = 'post__in';
+            }
+
+            $exclude = array_filter( array_map( 'absint', preg_split( '/[\s,]+/', (string) $atts['exclude'] ) ) );
+            if ( ! empty( $exclude ) ) {
+                $query_args['post__not_in'] = $exclude;
+            }
+
+            if ( ! empty( $atts['category'] ) ) {
+                $categories = array_filter( array_map( 'sanitize_title', preg_split( '/[\s,]+/', $atts['category'] ) ) );
+                if ( ! empty( $categories ) ) {
+                    $query_args['category_name'] = implode( ',', $categories );
+                }
+            }
+
+            $query = new WP_Query( $query_args );
+
+            $cards = array();
+            if ( $query->have_posts() ) {
+                while ( $query->have_posts() ) {
+                    $query->the_post();
+                    $context = $this->get_loterie_display_context( get_the_ID() );
+                    if ( empty( $context ) ) {
+                        continue;
+                    }
+
+                    $card_html = $this->render_loterie_card( $context );
+                    if ( '' !== trim( $card_html ) ) {
+                        $cards[] = $card_html;
+                    }
+                }
+            }
+
+            wp_reset_postdata();
+
+            if ( empty( $cards ) ) {
+                if ( '' === $atts['empty_message'] ) {
+                    return '';
+                }
+
+                return sprintf(
+                    '<div class="lm-lottery-grid lm-lottery-grid--empty"><p>%s</p></div>',
+                    esc_html( $atts['empty_message'] )
+                );
+            }
+
+            ob_start();
+            ?>
+            <div class="lm-lottery-grid">
+                <?php foreach ( $cards as $card_html ) : ?>
+                    <div class="lm-lottery-grid__item">
+                        <?php echo $card_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+                    </div>
+                <?php endforeach; ?>
+            </div>
             <?php
 
             return (string) ob_get_clean();
