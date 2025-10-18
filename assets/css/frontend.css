@@ -172,6 +172,30 @@
     background: var(--lm-card-bg);
 }
 
+.lm-lottery-grid {
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    margin: 2rem 0;
+}
+
+.lm-lottery-grid__item {
+    display: flex;
+}
+
+.lm-lottery-grid__item .lm-lottery-card {
+    width: 100%;
+}
+
+.lm-lottery-grid--empty {
+    margin: 2rem 0;
+    text-align: center;
+}
+
+.lm-lottery-grid--empty p {
+    margin: 0;
+}
+
 .lm-lottery-card__media {
     position: relative;
     overflow: hidden;
