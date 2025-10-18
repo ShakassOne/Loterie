@@ -62,6 +62,7 @@ Lorsque les critères sont remplis (tickets valides disponibles et loterie prêt
 
 ## Historique des versions
 
+- **1.5.6** : ajout des miniatures des loteries sélectionnées dans les e-mails de confirmation WooCommerce.
 - **1.5.5** : suppression de l'overlay sur les vignettes de loterie pour alléger la présentation des articles.
 - **1.5.4** : affichage du nombre total de tickets vendus sur les cartes front-end à la place des participants uniques.
 - **1.5.3** : correction de la détection des sélections de loterie lors de l'ajout au panier pour rétablir la création des tickets et amélioration de la compatibilité front-end.
