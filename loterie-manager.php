@@ -3,7 +3,7 @@
 Plugin Name: WinShirt Loterie Manager
 Plugin URI: https://github.com/ShakassOne/loterie-winshirt
 Description: Gestion des loteries pour WooCommerce.
-Version: 1.5.8
+Version: 1.5.9
 Author: Shakass Communication
 Author URI: https://shakass.com
 Text Domain: loterie-winshirt
@@ -191,7 +191,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 'loterie-manager-frontend',
                 plugins_url( 'assets/css/frontend.css', __FILE__ ),
                 array(),
-                '1.0.1'
+                '1.5.9'
             );
 
             wp_enqueue_script(
@@ -1474,18 +1474,16 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             }
 
             if ( $columns > 0 ) {
-                $grid_styles[] = '--lm-grid-columns: ' . $columns;
+                $grid_styles[] = '--lm-grid-template-columns: repeat(' . $columns . ', minmax(0, 1fr))';
                 $grid_styles[] = '--lm-grid-min-width: 0px';
             }
 
             if ( $columns_tablet > 0 ) {
-                $grid_styles[] = '--lm-grid-columns-tablet: ' . $columns_tablet;
-                $grid_styles[] = '--lm-grid-min-width-tablet: 0px';
+                $grid_styles[] = '--lm-grid-template-columns-tablet: repeat(' . $columns_tablet . ', minmax(0, 1fr))';
             }
 
             if ( $columns_mobile > 0 ) {
-                $grid_styles[] = '--lm-grid-columns-mobile: ' . $columns_mobile;
-                $grid_styles[] = '--lm-grid-min-width-mobile: 0px';
+                $grid_styles[] = '--lm-grid-template-columns-mobile: repeat(' . $columns_mobile . ', minmax(0, 1fr))';
             }
 
             $grid_attributes = array(
