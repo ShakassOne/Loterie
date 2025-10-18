@@ -176,30 +176,42 @@
     --lm-grid-min-width: 260px;
     display: grid;
     gap: 1.5rem;
-    grid-template-columns: repeat(auto-fit, minmax(var(--lm-grid-min-width, 260px), 1fr));
+    grid-template-columns: var(
+        --lm-grid-template-columns,
+        repeat(auto-fit, minmax(var(--lm-grid-min-width, 260px), 1fr))
+    );
     margin: 2rem 0;
 }
 
 .lm-lottery-grid--has-config {
-    grid-template-columns: repeat(var(--lm-grid-columns, auto-fit), minmax(var(--lm-grid-min-width, 0px), 1fr));
+    grid-template-columns: var(
+        --lm-grid-template-columns,
+        repeat(auto-fit, minmax(var(--lm-grid-min-width, 260px), 1fr))
+    );
 }
 
 @media (max-width: 1024px) {
     .lm-lottery-grid--has-config {
-        grid-template-columns: repeat(
-            var(--lm-grid-columns-tablet, var(--lm-grid-columns, auto-fit)),
-            minmax(var(--lm-grid-min-width-tablet, var(--lm-grid-min-width, 0px)), 1fr)
+        grid-template-columns: var(
+            --lm-grid-template-columns-tablet,
+            var(
+                --lm-grid-template-columns,
+                repeat(auto-fit, minmax(var(--lm-grid-min-width, 260px), 1fr))
+            )
         );
     }
 }
 
 @media (max-width: 640px) {
     .lm-lottery-grid--has-config {
-        grid-template-columns: repeat(
-            var(--lm-grid-columns-mobile, var(--lm-grid-columns-tablet, var(--lm-grid-columns, auto-fit))),
-            minmax(
-                var(--lm-grid-min-width-mobile, var(--lm-grid-min-width-tablet, var(--lm-grid-min-width, 0px))),
-                1fr
+        grid-template-columns: var(
+            --lm-grid-template-columns-mobile,
+            var(
+                --lm-grid-template-columns-tablet,
+                var(
+                    --lm-grid-template-columns,
+                    repeat(auto-fit, minmax(var(--lm-grid-min-width, 260px), 1fr))
+                )
             )
         );
     }

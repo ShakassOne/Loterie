@@ -64,6 +64,7 @@ Lorsque les critères sont remplis (tickets valides disponibles et loterie prêt
 
 ## Historique des versions
 
+- **1.5.9** : correction de l'interprétation des attributs de colonnes du shortcode `[lm_loterie_grid]` pour garantir une grille multi-colonnes quelle que soit la configuration.
 - **1.5.8** : ajout des attributs `columns`, `columns_tablet` et `columns_mobile` pour configurer le nombre de cartes par ligne dans le shortcode `[lm_loterie_grid]`.
 - **1.5.7** : nouveau shortcode `[lm_loterie_grid]` pour afficher toutes les loteries en grille responsive.
 - **1.5.6** : ajout des miniatures des loteries sélectionnées dans les e-mails de confirmation WooCommerce.
