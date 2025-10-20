@@ -64,6 +64,7 @@ Lorsque les critères sont remplis (tickets valides disponibles et loterie prêt
 
 ## Historique des versions
 
+- **1.3.4** : optimisation de l'affichage mobile du shortcode `[lm_loterie_grid]` (marges réduites, typographie ajustée et mise en page resserrée).
 - **1.3.3** : filtres dynamiques pour le shortcode `[lm_loterie]`, rechargement AJAX et nouveaux styles cohérents avec la grille.
 - **1.3.2** : correction du balisage généré par le shortcode `[lm_loterie_grid]` et fiabilisation de l'application des attributs de colonnes personnalisés.
 - **1.3.1** : correction de l'interprétation des attributs de colonnes du shortcode `[lm_loterie_grid]` pour garantir une grille multi-colonnes quelle que soit la configuration.
