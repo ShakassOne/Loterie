@@ -3,7 +3,7 @@
 Plugin Name: WinShirt Loterie Manager
 Plugin URI: https://github.com/ShakassOne/loterie-winshirt
 Description: Gestion des loteries pour WooCommerce.
-Version: 1.5.10
+Version: 1.3.3
 Author: Shakass Communication
 Author URI: https://shakass.com
 Text Domain: loterie-winshirt
@@ -18,6 +18,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 if ( ! class_exists( 'Loterie_Manager' ) ) {
 
     final class Loterie_Manager {
+
+        const VERSION = '1.3.3';
 
         /**
          * Meta key storing total ticket capacity for a loterie (post).
@@ -122,6 +124,8 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             add_action( 'init', array( $this, 'load_textdomain' ) );
             add_action( 'init', array( $this, 'register_account_endpoint' ) );
             add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_frontend_assets' ) );
+            add_action( 'wp_ajax_lm_filter_loteries', array( $this, 'ajax_filter_loteries' ) );
+            add_action( 'wp_ajax_nopriv_lm_filter_loteries', array( $this, 'ajax_filter_loteries' ) );
 
             if ( is_admin() ) {
                 add_action( 'admin_menu', array( $this, 'register_admin_menu' ) );
@@ -191,14 +195,14 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 'loterie-manager-frontend',
                 plugins_url( 'assets/css/frontend.css', __FILE__ ),
                 array(),
-                '1.5.9'
+                self::VERSION
             );
 
             wp_enqueue_script(
                 'loterie-manager-frontend',
                 plugins_url( 'assets/js/frontend.js', __FILE__ ),
                 array( 'jquery' ),
-                '1.0.1',
+                self::VERSION,
                 true
             );
 
@@ -215,6 +219,62 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                         'ticket_limit_reached_plural' => __( 'Vous ne pouvez sélectionner que %s loteries pour ce produit.', 'loterie-manager' ),
                         'default_lottery_label'       => __( 'Loterie #%d', 'loterie-manager' ),
                     ),
+                )
+            );
+
+            wp_register_script(
+                'loterie-manager-lottery-filters',
+                plugins_url( 'assets/js/loterie-filters.js', __FILE__ ),
+                array( 'jquery' ),
+                self::VERSION,
+                true
+            );
+
+            wp_localize_script(
+                'loterie-manager-lottery-filters',
+                'LoterieManagerFilters',
+                array(
+                    'ajax_url' => admin_url( 'admin-ajax.php' ),
+                    'nonce'    => wp_create_nonce( 'lm_filter_loteries' ),
+                    'i18n'     => array(
+                        'loading'    => __( 'Chargement des loteries…', 'loterie-manager' ),
+                        'no_results' => __( 'Aucune loterie ne correspond à votre recherche.', 'loterie-manager' ),
+                        'error'      => __( 'Une erreur est survenue lors du chargement des loteries.', 'loterie-manager' ),
+                    ),
+                )
+            );
+        }
+
+        /**
+         * Handles AJAX requests for filtering lotteries.
+         */
+        public function ajax_filter_loteries() {
+            if ( ! check_ajax_referer( 'lm_filter_loteries', 'nonce', false ) ) {
+                wp_send_json_error(
+                    array(
+                        'message' => __( 'Jeton de sécurité invalide.', 'loterie-manager' ),
+                    ),
+                    400
+                );
+            }
+
+            $status   = isset( $_POST['status'] ) ? sanitize_key( wp_unslash( $_POST['status'] ) ) : '';
+            $category = isset( $_POST['category'] ) ? absint( $_POST['category'] ) : 0;
+            $search   = isset( $_POST['search'] ) ? sanitize_text_field( wp_unslash( $_POST['search'] ) ) : '';
+            $sort     = isset( $_POST['sort'] ) ? sanitize_key( wp_unslash( $_POST['sort'] ) ) : '';
+
+            $html = $this->get_filtered_lotteries_html(
+                array(
+                    'status'   => $status,
+                    'category' => $category,
+                    'search'   => $search,
+                    'sort'     => $sort,
+                )
+            );
+
+            wp_send_json_success(
+                array(
+                    'html' => $html,
                 )
             );
         }
@@ -1319,25 +1379,314 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
         public function render_loterie_shortcode( $atts ) {
             $atts = shortcode_atts(
                 array(
-                    'id' => get_the_ID(),
+                    'id'   => '',
+                    'sort' => 'date_desc',
                 ),
-                $atts
+                $atts,
+                'lm_loterie'
             );
 
             $lottery_id = $atts['id'];
 
-            if ( 'most_advanced' === $lottery_id ) {
-                $lottery_id = $this->get_most_advanced_loterie_id();
+            if ( '' !== $lottery_id ) {
+                if ( 'most_advanced' === $lottery_id ) {
+                    $lottery_id = $this->get_most_advanced_loterie_id();
+                }
+
+                $lottery_id = absint( $lottery_id );
+
+                if ( ! $lottery_id ) {
+                    return '';
+                }
+
+                $context = $this->get_loterie_display_context( $lottery_id );
+                if ( empty( $context ) ) {
+                    return '';
+                }
+
+                return $this->render_loterie_card( $context );
             }
 
-            $lottery_id = absint( $lottery_id );
+            wp_enqueue_script( 'loterie-manager-lottery-filters' );
 
-            $context = $this->get_loterie_display_context( $lottery_id );
-            if ( empty( $context ) ) {
-                return '';
+            $sort_key     = $this->normalize_loterie_sort_key( $atts['sort'] );
+            $sort_options = $this->get_loterie_sort_options();
+            $categories   = get_categories(
+                array(
+                    'hide_empty' => true,
+                )
+            );
+
+            $form_uid      = uniqid( 'lm-lottery-filters-' );
+            $status_field  = $form_uid . '-status';
+            $category_field = $form_uid . '-category';
+            $search_field  = $form_uid . '-search';
+            $sort_field    = $form_uid . '-sort';
+
+            $initial_html = $this->get_filtered_lotteries_html(
+                array(
+                    'sort' => $sort_key,
+                )
+            );
+
+            ob_start();
+            ?>
+            <div class="lm-lottery-list" data-default-sort="<?php echo esc_attr( $sort_key ); ?>">
+                <form class="lm-lottery-filters" action="#" method="post" novalidate>
+                    <div class="lm-lottery-filters__field lm-lottery-filters__field--status">
+                        <label for="<?php echo esc_attr( $status_field ); ?>"><?php esc_html_e( 'Statut des loteries', 'loterie-manager' ); ?></label>
+                        <select id="<?php echo esc_attr( $status_field ); ?>" name="status">
+                            <option value="" selected="selected"><?php esc_html_e( 'Tous les statuts', 'loterie-manager' ); ?></option>
+                            <option value="active"><?php esc_html_e( 'En cours', 'loterie-manager' ); ?></option>
+                            <option value="ended"><?php esc_html_e( 'Terminées', 'loterie-manager' ); ?></option>
+                        </select>
+                    </div>
+
+                    <div class="lm-lottery-filters__field lm-lottery-filters__field--category">
+                        <label for="<?php echo esc_attr( $category_field ); ?>"><?php esc_html_e( 'Catégorie', 'loterie-manager' ); ?></label>
+                        <select id="<?php echo esc_attr( $category_field ); ?>" name="category">
+                            <option value="" selected="selected"><?php esc_html_e( 'Toutes les catégories', 'loterie-manager' ); ?></option>
+                            <?php foreach ( $categories as $category ) : ?>
+                                <option value="<?php echo esc_attr( $category->term_id ); ?>"><?php echo esc_html( $category->name ); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="lm-lottery-filters__field lm-lottery-filters__field--search">
+                        <label for="<?php echo esc_attr( $search_field ); ?>"><?php esc_html_e( 'Recherche', 'loterie-manager' ); ?></label>
+                        <input type="search" id="<?php echo esc_attr( $search_field ); ?>" name="search" placeholder="<?php esc_attr_e( 'Rechercher une loterie', 'loterie-manager' ); ?>" />
+                    </div>
+
+                    <div class="lm-lottery-filters__field lm-lottery-filters__field--sort">
+                        <label for="<?php echo esc_attr( $sort_field ); ?>"><?php esc_html_e( 'Trier par', 'loterie-manager' ); ?></label>
+                        <select id="<?php echo esc_attr( $sort_field ); ?>" name="sort">
+                            <?php foreach ( $sort_options as $key => $option ) :
+                                $label = isset( $option['label'] ) ? $option['label'] : $key;
+                                ?>
+                                <option value="<?php echo esc_attr( $key ); ?>"<?php selected( $sort_key, $key ); ?>><?php echo esc_html( $label ); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="lm-lottery-filters__actions">
+                        <button type="submit" class="lm-lottery-filters__submit"><?php esc_html_e( 'Filtrer', 'loterie-manager' ); ?></button>
+                        <button type="reset" class="lm-lottery-filters__reset"><?php esc_html_e( 'Réinitialiser', 'loterie-manager' ); ?></button>
+                    </div>
+                </form>
+
+                <div class="lm-lottery-list__loading" role="status" aria-live="polite" aria-hidden="true"></div>
+                <div class="lm-lottery-list__results" aria-live="polite" aria-busy="false">
+                    <?php echo $initial_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+                </div>
+            </div>
+            <?php
+
+            return (string) ob_get_clean();
+        }
+
+        /**
+         * Normalizes the requested sort key.
+         *
+         * @param string $sort Requested sort key.
+         *
+         * @return string
+         */
+        private function normalize_loterie_sort_key( $sort ) {
+            $sort      = sanitize_key( (string) $sort );
+            $options   = $this->get_loterie_sort_options();
+
+            return isset( $options[ $sort ] ) ? $sort : 'date_desc';
+        }
+
+        /**
+         * Returns available sort options for the front-end filters.
+         *
+         * @return array<string, array<string, mixed>>
+         */
+        private function get_loterie_sort_options() {
+            return array(
+                'date_desc'  => array(
+                    'orderby' => 'date',
+                    'order'   => 'DESC',
+                    'label'   => __( 'Plus récentes', 'loterie-manager' ),
+                ),
+                'date_asc'   => array(
+                    'orderby' => 'date',
+                    'order'   => 'ASC',
+                    'label'   => __( 'Plus anciennes', 'loterie-manager' ),
+                ),
+                'title_asc'  => array(
+                    'orderby' => 'title',
+                    'order'   => 'ASC',
+                    'label'   => __( 'Titre A → Z', 'loterie-manager' ),
+                ),
+                'title_desc' => array(
+                    'orderby' => 'title',
+                    'order'   => 'DESC',
+                    'label'   => __( 'Titre Z → A', 'loterie-manager' ),
+                ),
+            );
+        }
+
+        /**
+         * Normalizes the loterie status filter.
+         *
+         * @param string $status Requested status filter.
+         *
+         * @return string
+         */
+        private function normalize_loterie_status_filter( $status ) {
+            $status   = sanitize_key( (string) $status );
+            $allowed  = array( 'active', 'ended' );
+
+            return in_array( $status, $allowed, true ) ? $status : '';
+        }
+
+        /**
+         * Generates the filtered loterie list markup.
+         *
+         * @param array<string, mixed> $args Filter arguments.
+         *
+         * @return string
+         */
+        private function get_filtered_lotteries_html( $args = array() ) {
+            $defaults = array(
+                'status'   => '',
+                'category' => 0,
+                'search'   => '',
+                'sort'     => 'date_desc',
+            );
+
+            $args = wp_parse_args( $args, $defaults );
+
+            $status   = $this->normalize_loterie_status_filter( $args['status'] );
+            $category = absint( $args['category'] );
+            $search   = sanitize_text_field( (string) $args['search'] );
+            $sort_key = $this->normalize_loterie_sort_key( $args['sort'] );
+
+            $sort_options = $this->get_loterie_sort_options();
+            $sort_config  = isset( $sort_options[ $sort_key ] ) ? $sort_options[ $sort_key ] : $sort_options['date_desc'];
+
+            $query_args = array(
+                'post_type'           => 'post',
+                'post_status'         => 'publish',
+                'posts_per_page'      => -1,
+                'orderby'             => $sort_config['orderby'],
+                'ignore_sticky_posts' => true,
+                'no_found_rows'       => true,
+            );
+
+            if ( isset( $sort_config['order'] ) && 'rand' !== $sort_config['orderby'] ) {
+                $query_args['order'] = $sort_config['order'];
             }
 
-            return $this->render_loterie_card( $context );
+            if ( '' !== $search ) {
+                $query_args['s'] = $search;
+            }
+
+            if ( $category > 0 ) {
+                $query_args['cat'] = $category;
+            }
+
+            $query = new WP_Query( $query_args );
+
+            $items = array();
+            $now   = current_time( 'timestamp' );
+
+            if ( $query->have_posts() ) {
+                while ( $query->have_posts() ) {
+                    $query->the_post();
+
+                    $context = $this->get_loterie_display_context( get_the_ID() );
+                    if ( empty( $context ) ) {
+                        continue;
+                    }
+
+                    $is_active = $this->is_context_active( $context, $now );
+
+                    if ( 'active' === $status && ! $is_active ) {
+                        continue;
+                    }
+
+                    if ( 'ended' === $status && $is_active ) {
+                        continue;
+                    }
+
+                    $card_html = $this->render_loterie_card( $context );
+                    if ( '' === $card_html ) {
+                        continue;
+                    }
+
+                    $items[] = '<div class="lm-lottery-list__item">' . $card_html . '</div>';
+                }
+            }
+
+            wp_reset_postdata();
+
+            if ( empty( $items ) ) {
+                return '<p class="lm-lottery-list__empty">' . esc_html__( 'Aucune loterie ne correspond à votre recherche.', 'loterie-manager' ) . '</p>';
+            }
+
+            return '<div class="lm-lottery-list__items">' . implode( '', $items ) . '</div>';
+        }
+
+        /**
+         * Determines whether a loterie is currently active.
+         *
+         * @param int      $post_id   Loterie post ID.
+         * @param int|null $timestamp Reference timestamp.
+         *
+         * @return bool
+         */
+        private function is_loterie_active( $post_id, $timestamp = null ) {
+            $post_id = absint( $post_id );
+            if ( ! $post_id ) {
+                return false;
+            }
+
+            if ( null === $timestamp ) {
+                $timestamp = current_time( 'timestamp' );
+            }
+
+            $stats = $this->get_lottery_stats( $post_id );
+            if ( isset( $stats['status_code'] ) ) {
+                return in_array( $stats['status_code'], array( 'active', 'complete' ), true );
+            }
+
+            $end_date = get_post_meta( $post_id, self::META_END_DATE, true );
+            $end_time = $end_date ? strtotime( $end_date ) : false;
+
+            if ( ! $end_time ) {
+                return true;
+            }
+
+            return $end_time >= $timestamp;
+        }
+
+        /**
+         * Determines whether the provided loterie context is active.
+         *
+         * @param array<string, mixed> $context Loterie context.
+         * @param int|null             $timestamp Reference timestamp.
+         *
+         * @return bool
+         */
+        private function is_context_active( $context, $timestamp = null ) {
+            if ( isset( $context['status_class'] ) ) {
+                $status_class = (string) $context['status_class'];
+
+                if ( false !== strpos( $status_class, 'is-active' ) ) {
+                    return true;
+                }
+
+                if ( false !== strpos( $status_class, 'is-ended' ) ) {
+                    return false;
+                }
+            }
+
+            $post_id = isset( $context['post_id'] ) ? absint( $context['post_id'] ) : 0;
+
+            return $this->is_loterie_active( $post_id, $timestamp );
         }
 
         /**
@@ -2754,7 +3103,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 'loterie-manager-admin',
                 plugins_url( 'assets/css/admin.css', __FILE__ ),
                 array(),
-                '1.5.0'
+                self::VERSION
             );
         }
 

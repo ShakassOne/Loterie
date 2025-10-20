@@ -20,7 +20,7 @@ Le plugin **Loterie Manager** ajoute une couche de gestion de loteries aux sites
 
 ### Shortcode
 
-Utilisez `[lm_loterie id="123"]` pour afficher un résumé d'une loterie spécifique (remplacez `123` par l’ID de l’article). Sans paramètre `id`, le shortcode utilisera l’article courant dans la boucle. Pour afficher automatiquement la loterie la plus avancée (celle ayant vendu le plus de tickets), utilisez `[lm_loterie id="most_advanced"]`.
+Utilisez `[lm_loterie id="123"]` pour afficher un résumé d'une loterie spécifique (remplacez `123` par l’ID de l’article). Sans paramètre `id`, le shortcode affiche désormais un catalogue interactif avec filtres dynamiques (statut, catégorie, recherche et tri) qui s'actualise via AJAX. Le paramètre optionnel `sort` permet de définir le tri par défaut (`date_desc`, `date_asc`, `title_asc`, `title_desc`). Pour afficher automatiquement la loterie la plus avancée (celle ayant vendu le plus de tickets), utilisez `[lm_loterie id="most_advanced"]`.
 
 Le shortcode `[lm_loterie_summary id="123"]` affiche désormais un bandeau coloré indiquant le jour écoulé depuis le lancement, le nombre d’articles encore disponibles et l’objectif total. Parfait pour insérer un rappel visuel percutant dans la description d’un produit.
 
@@ -64,23 +64,25 @@ Lorsque les critères sont remplis (tickets valides disponibles et loterie prêt
 
 ## Historique des versions
 
-- **1.5.10** : correction du balisage généré par le shortcode `[lm_loterie_grid]` et fiabilisation de l'application des attributs de colonnes personnalisés.
-- **1.5.9** : correction de l'interprétation des attributs de colonnes du shortcode `[lm_loterie_grid]` pour garantir une grille multi-colonnes quelle que soit la configuration.
-- **1.5.8** : ajout des attributs `columns`, `columns_tablet` et `columns_mobile` pour configurer le nombre de cartes par ligne dans le shortcode `[lm_loterie_grid]`.
-- **1.5.7** : nouveau shortcode `[lm_loterie_grid]` pour afficher toutes les loteries en grille responsive.
-- **1.5.6** : ajout des miniatures des loteries sélectionnées dans les e-mails de confirmation WooCommerce.
-- **1.5.5** : suppression de l'overlay sur les vignettes de loterie pour alléger la présentation des articles.
-- **1.5.4** : affichage du nombre total de tickets vendus sur les cartes front-end à la place des participants uniques.
-- **1.5.3** : correction de la détection des sélections de loterie lors de l'ajout au panier pour rétablir la création des tickets et amélioration de la compatibilité front-end.
-- **1.5.2** : ajout d'un alias `id="most_advanced"` pour afficher automatiquement la loterie ayant vendu le plus de tickets.
-- **1.5.1** : correction de l'affichage du chiffre d'affaires pour afficher uniquement la valeur formatée sans balises HTML WooCommerce.
-- **1.5.0** : refonte du dashboard admin en thème dark glassmorphism, nouvelles cartes KPI, graphe temporel, flux de tirage manuel en 3 étapes, export huissier contextualisé et timeline modernisée.
-- **1.4.0** : ajout du tableau de bord d’administration, du journal des actions, de l’export officiel et du tirage manuel ; amélioration de l’espace client avec filtres et statuts explicites.
+- **1.3.3** : filtres dynamiques pour le shortcode `[lm_loterie]`, rechargement AJAX et nouveaux styles cohérents avec la grille.
+- **1.3.2** : correction du balisage généré par le shortcode `[lm_loterie_grid]` et fiabilisation de l'application des attributs de colonnes personnalisés.
+- **1.3.1** : correction de l'interprétation des attributs de colonnes du shortcode `[lm_loterie_grid]` pour garantir une grille multi-colonnes quelle que soit la configuration.
+- **1.3.0** : ajout des attributs `columns`, `columns_tablet` et `columns_mobile` pour configurer le nombre de cartes par ligne dans le shortcode `[lm_loterie_grid]`.
+- **1.2.9** : nouveau shortcode `[lm_loterie_grid]` pour afficher toutes les loteries en grille responsive.
+- **1.2.8** : ajout des miniatures des loteries sélectionnées dans les e-mails de confirmation WooCommerce.
+- **1.2.7** : suppression de l'overlay sur les vignettes de loterie pour alléger la présentation des articles.
+- **1.2.6** : affichage du nombre total de tickets vendus sur les cartes front-end à la place des participants uniques.
+- **1.2.5** : correction de la détection des sélections de loterie lors de l'ajout au panier pour rétablir la création des tickets et amélioration de la compatibilité front-end.
+- **1.2.4** : ajout d'un alias `id="most_advanced"` pour afficher automatiquement la loterie ayant vendu le plus de tickets.
+- **1.2.3** : correction de l'affichage du chiffre d'affaires pour afficher uniquement la valeur formatée sans balises HTML WooCommerce.
+- **1.2.2** : refonte du dashboard admin en thème dark glassmorphism, nouvelles cartes KPI, graphe temporel, flux de tirage manuel en 3 étapes, export huissier contextualisé et timeline modernisée.
+- **1.2.1** : ajout du tableau de bord d’administration, du journal des actions, de l’export officiel et du tirage manuel ; amélioration de l’espace client avec filtres et statuts explicites.
 
 ## Assets & Traductions
 
 - `assets/css/frontend.css` : styles du popup et du tableau « Mes tickets ».
 - `assets/js/frontend.js` : logique du popup de sélection et interactions front-end.
+- `assets/js/loterie-filters.js` : gestion des filtres dynamiques du shortcode `[lm_loterie]` et rafraîchissement AJAX.
 - `languages/loterie-manager-fr_FR.po` : base de traduction française (la langue par défaut du plugin est déjà en français, mais le fichier facilite les personnalisations).
 
 ## Développement

@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Loterie Manager 1.0.0\n"
+"Project-Id-Version: Loterie Manager 1.3.3\n"
 "POT-Creation-Date: 2024-01-01 00:00+0000\n"
 "PO-Revision-Date: 2024-01-01 00:00+0000\n"
 "Language: fr_FR\n"
@@ -25,6 +25,82 @@ msgstr "Confirmer"
 #: loterie-manager.php:81
 msgid "Annuler"
 msgstr "Annuler"
+
+#: loterie-manager.php:205
+msgid "Chargement des loteries…"
+msgstr "Chargement des loteries…"
+
+#: loterie-manager.php:206 loterie-manager.php:1681
+msgid "Aucune loterie ne correspond à votre recherche."
+msgstr "Aucune loterie ne correspond à votre recherche."
+
+#: loterie-manager.php:207
+msgid "Une erreur est survenue lors du chargement des loteries."
+msgstr "Une erreur est survenue lors du chargement des loteries."
+
+#: loterie-manager.php:217
+msgid "Jeton de sécurité invalide."
+msgstr "Jeton de sécurité invalide."
+
+#: loterie-manager.php:1389
+msgid "Statut des loteries"
+msgstr "Statut des loteries"
+
+#: loterie-manager.php:1391
+msgid "Tous les statuts"
+msgstr "Tous les statuts"
+
+#: loterie-manager.php:1392
+msgid "En cours"
+msgstr "En cours"
+
+#: loterie-manager.php:1393
+msgid "Terminées"
+msgstr "Terminées"
+
+#: loterie-manager.php:1397
+msgid "Catégorie"
+msgstr "Catégorie"
+
+#: loterie-manager.php:1399
+msgid "Toutes les catégories"
+msgstr "Toutes les catégories"
+
+#: loterie-manager.php:1404
+msgid "Recherche"
+msgstr "Recherche"
+
+#: loterie-manager.php:1405
+msgid "Rechercher une loterie"
+msgstr "Rechercher une loterie"
+
+#: loterie-manager.php:1409
+msgid "Trier par"
+msgstr "Trier par"
+
+#: loterie-manager.php:1419
+msgid "Filtrer"
+msgstr "Filtrer"
+
+#: loterie-manager.php:1420
+msgid "Réinitialiser"
+msgstr "Réinitialiser"
+
+#: loterie-manager.php:1507
+msgid "Plus récentes"
+msgstr "Plus récentes"
+
+#: loterie-manager.php:1511
+msgid "Plus anciennes"
+msgstr "Plus anciennes"
+
+#: loterie-manager.php:1515
+msgid "Titre A → Z"
+msgstr "Titre A → Z"
+
+#: loterie-manager.php:1519
+msgid "Titre Z → A"
+msgstr "Titre Z → A"
 
 #: loterie-manager.php:107
 msgid "Tickets attribués"
