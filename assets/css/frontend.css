@@ -246,10 +246,9 @@
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     padding: 1.5rem;
     border-radius: 1rem;
-    background: rgba(15, 23, 42, 0.75);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(12px);
-    color: #f8fafc;
+    background: #ffffff;
+    border: 1px solid #0f172a;
+    color: #0f172a;
 }
 
 .lm-lottery-filters__field {
@@ -263,7 +262,7 @@
     font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: rgba(248, 250, 252, 0.85);
+    color: #0f172a;
 }
 
 .lm-lottery-filters__field select,
@@ -271,21 +270,21 @@
     width: 100%;
     padding: 0.65rem 0.85rem;
     border-radius: 0.85rem;
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    background: rgba(15, 23, 42, 0.65);
-    color: #f8fafc;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    border: 1px solid #0f172a;
+    background: #ffffff;
+    color: #0f172a;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 
 .lm-lottery-filters__field select:focus,
 .lm-lottery-filters__field input[type="search"]:focus {
     outline: none;
-    border-color: var(--winshirt-purple);
-    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.25);
+    border-color: #111827;
+    box-shadow: 0 0 0 1px #111827;
 }
 
 .lm-lottery-filters__field input[type="search"]::placeholder {
-    color: rgba(248, 250, 252, 0.5);
+    color: rgba(15, 23, 42, 0.45);
 }
 
 .lm-lottery-filters__actions {
@@ -300,33 +299,21 @@
     border-radius: 999px;
     padding: 0.65rem 1.75rem;
     font-weight: 600;
-    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-}
-
-.lm-lottery-filters__submit {
-    background: linear-gradient(135deg, var(--winshirt-purple), var(--winshirt-blue));
-    color: #ffffff;
-    border: 0;
+    background: #ffffff;
+    color: #0f172a;
+    border: 1px solid #0f172a;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
 }
 
 .lm-lottery-filters__submit:hover,
-.lm-lottery-filters__submit:focus {
-    transform: translateY(-1px);
-    box-shadow: 0 10px 30px rgba(124, 58, 237, 0.4);
-    outline: none;
-}
-
-.lm-lottery-filters__reset {
-    background: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.35);
-    color: #f8fafc;
-}
-
+.lm-lottery-filters__submit:focus,
 .lm-lottery-filters__reset:hover,
 .lm-lottery-filters__reset:focus {
-    border-color: var(--winshirt-purple);
-    color: #ffffff;
+    transform: translateY(-1px);
+    background: #f5f5f5;
+    border-color: #111827;
     outline: none;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
 }
 
 .lm-lottery-list__loading {
