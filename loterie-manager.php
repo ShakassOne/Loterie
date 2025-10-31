@@ -3,7 +3,7 @@
 Plugin Name: WinShirt Loterie Manager
 Plugin URI: https://github.com/ShakassOne/loterie-winshirt
 Description: Gestion des loteries pour WooCommerce.
-Version: 1.3.5
+Version: 1.3.6
 Author: Shakass Communication
 Author URI: https://shakass.com
 Text Domain: loterie-winshirt
@@ -19,7 +19,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
 
     final class Loterie_Manager {
 
-        const VERSION = '1.3.5';
+        const VERSION = '1.3.6';
 
         /**
          * Meta key storing total ticket capacity for a loterie (post).
@@ -165,6 +165,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             // Frontend shortcodes.
             add_shortcode( 'lm_loterie', array( $this, 'render_loterie_shortcode' ) );
             add_shortcode( 'lm_loterie_summary', array( $this, 'render_loterie_summary_shortcode' ) );
+            add_shortcode( 'lm_loterie_sold', array( $this, 'render_loterie_sold_shortcode' ) );
             add_shortcode( 'lm_loterie_grid', array( $this, 'render_loterie_grid_shortcode' ) );
 
             // Account area.
@@ -1943,6 +1944,31 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             <?php
 
             return (string) ob_get_clean();
+        }
+
+        /**
+         * Renders the sold ticket count for a loterie via shortcode.
+         *
+         * @param array $atts Shortcode attributes.
+         *
+         * @return string
+         */
+        public function render_loterie_sold_shortcode( $atts ) {
+            $atts = shortcode_atts(
+                array(
+                    'id' => get_the_ID(),
+                ),
+                $atts
+            );
+
+            $context = $this->get_loterie_display_context( $atts['id'] );
+            if ( empty( $context ) ) {
+                return '';
+            }
+
+            $sold = isset( $context['sold'] ) ? absint( $context['sold'] ) : 0;
+
+            return (string) number_format_i18n( $sold );
         }
 
         /**
