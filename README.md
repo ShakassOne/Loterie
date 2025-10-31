@@ -26,6 +26,8 @@ Le shortcode `[lm_loterie_summary id="123"]` affiche désormais un bandeau color
 
 Le shortcode `[lm_loterie_grid]` affiche automatiquement toutes les loteries publiées sous forme de grille responsive. Il accepte plusieurs attributs optionnels (`posts_per_page`, `orderby`, `order`, `category`, `ids`, `exclude`, `status`, `empty_message`) pour filtrer ou personnaliser la liste rendue. Utilisez également `columns`, `columns_tablet` et `columns_mobile` pour définir respectivement le nombre de cartes par ligne sur desktop, tablette et mobile (par défaut la grille revient à trois colonnes sur tablette et à une colonne sur mobile lorsqu’un nombre de colonnes desktop est fourni).
 
+Le shortcode `[lm_loterie_sold id="123"]` renvoie uniquement le nombre total de tickets vendus pour la loterie visée, sans balisage HTML additionnel, idéal pour l’intégrer dans une phrase ou un compteur personnalisé.
+
 > ℹ️ **Comment est calculé le « Jour » ?**
 >
 > Le badge « Jour X » correspond désormais au nombre de jours écoulés depuis la publication de l’article-loterie. Le plugin récupère la date de création de l’article, calcule la différence avec l’heure actuelle (`current_time('timestamp')`), puis ajoute 1 pour afficher « Jour 1 » le jour du lancement, « Jour 2 » le lendemain, etc. Pour remettre le compteur à zéro, modifiez la date de publication de l’article (onglet **Publier** → lien **Modifier** à côté de la date) puis enregistrez : le bandeau reflètera immédiatement cette nouvelle date de départ.
@@ -64,6 +66,7 @@ Lorsque les critères sont remplis (tickets valides disponibles et loterie prêt
 
 ## Historique des versions
 
+- **1.3.6** : ajout du shortcode `[lm_loterie_sold]` pour afficher uniquement le total de tickets vendus.
 - **1.3.4** : optimisation de l'affichage mobile du shortcode `[lm_loterie_grid]` (marges réduites, typographie ajustée et mise en page resserrée).
 - **1.3.3** : filtres dynamiques pour le shortcode `[lm_loterie]`, rechargement AJAX et nouveaux styles cohérents avec la grille.
 - **1.3.2** : correction du balisage généré par le shortcode `[lm_loterie_grid]` et fiabilisation de l'application des attributs de colonnes personnalisés.
