@@ -457,6 +457,11 @@
     color: #7bf0c6;
 }
 
+.lm-status.is-upcoming {
+    background: rgba(59, 130, 246, 0.18);
+    color: #a5c4ff;
+}
+
 .lm-status.is-complete,
 .lm-status.winner {
     background: rgba(247, 185, 85, 0.18);
@@ -469,10 +474,20 @@
     color: #ffb3b3;
 }
 
+.lm-status.is-cancelled {
+    background: rgba(239, 68, 68, 0.18);
+    color: #ff9c9c;
+}
+
 .lm-status.is-draft,
 .lm-status.alternate {
     background: rgba(123, 127, 246, 0.18);
     color: #c6c8ff;
+}
+
+.lm-status.is-suspended {
+    background: rgba(234, 179, 8, 0.18);
+    color: #ffe4a3;
 }
 
 .lm-status.closed {

@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Loterie Manager 1.3.3\n"
+"Project-Id-Version: Loterie Manager 1.3.7\n"
 "POT-Creation-Date: 2024-01-01 00:00+0000\n"
 "PO-Revision-Date: 2024-01-01 00:00+0000\n"
 "Language: fr_FR\n"
@@ -46,6 +46,10 @@ msgstr "Jeton de sécurité invalide."
 msgid "Statut des loteries"
 msgstr "Statut des loteries"
 
+#: loterie-manager.php:1117
+msgid "Statut affiché"
+msgstr "Statut affiché"
+
 #: loterie-manager.php:1391
 msgid "Tous les statuts"
 msgstr "Tous les statuts"
@@ -54,9 +58,37 @@ msgstr "Tous les statuts"
 msgid "En cours"
 msgstr "En cours"
 
+#: loterie-manager.php:1119 loterie-manager.php:1393
+msgid "À venir"
+msgstr "À venir"
+
+#: loterie-manager.php:1123 loterie-manager.php:1394
+msgid "Annulées"
+msgstr "Annulées"
+
+#: loterie-manager.php:1126 loterie-manager.php:1395
+msgid "Suspendues"
+msgstr "Suspendues"
+
 #: loterie-manager.php:1393
 msgid "Terminées"
 msgstr "Terminées"
+
+#: loterie-manager.php:1047 loterie-manager.php:2950
+msgid "Terminée"
+msgstr "Terminée"
+
+#: loterie-manager.php:1121
+msgid "Annulée"
+msgstr "Annulée"
+
+#: loterie-manager.php:1124
+msgid "Suspendue"
+msgstr "Suspendue"
+
+#: loterie-manager.php:1118
+msgid "Automatique (calculé par le plugin)"
+msgstr "Automatique (calculé par le plugin)"
 
 #: loterie-manager.php:1397
 msgid "Catégorie"
