@@ -35,13 +35,64 @@
         $results.html($content);
     }
 
-    function collectFormData($form) {
-        return {
+    function collectWrapperConfig($wrapper) {
+        var data = {};
+
+        if (!$wrapper || !$wrapper.length) {
+            return data;
+        }
+
+        var layout = $wrapper.data('layout');
+        if (layout) {
+            data.layout = String(layout);
+        }
+
+        var columns = $wrapper.data('columns');
+        if (typeof columns !== 'undefined') {
+            data.columns = columns;
+        }
+
+        var columnsTablet = $wrapper.data('columnsTablet');
+        if (typeof columnsTablet !== 'undefined') {
+            data.columns_tablet = columnsTablet;
+        }
+
+        var columnsMobile = $wrapper.data('columnsMobile');
+        if (typeof columnsMobile !== 'undefined') {
+            data.columns_mobile = columnsMobile;
+        }
+
+        var manualOrder = $wrapper.data('manualOrder');
+        if (typeof manualOrder !== 'undefined') {
+            data.manual_order = manualOrder ? 1 : 0;
+        }
+
+        var emptyMessage = $wrapper.attr('data-empty-message');
+        if (typeof emptyMessage === 'string') {
+            data.empty_message = emptyMessage;
+        }
+
+        var queryArgsAttr = $wrapper.attr('data-query-args');
+        if (queryArgsAttr) {
+            data.query_args = queryArgsAttr;
+        }
+
+        return data;
+    }
+
+    function collectFormData($form, $wrapper) {
+        var payload = {
             status: $.trim(String($form.find('[name="status"]').val() || '')),
             category: $.trim(String($form.find('[name="category"]').val() || '')),
             search: $.trim(String($form.find('[name="search"]').val() || '')),
             sort: $.trim(String($form.find('[name="sort"]').val() || ''))
         };
+
+        if ($wrapper && $wrapper.length) {
+            $.extend(payload, collectWrapperConfig($wrapper));
+        }
+
+        return payload;
     }
 
     function submitFilters($form) {
@@ -55,7 +106,7 @@
             return;
         }
 
-        var payload = collectFormData($form);
+        var payload = collectFormData($form, $wrapper);
         payload.action = 'lm_filter_loteries';
         payload.nonce = config.nonce;
 

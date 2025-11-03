@@ -25,7 +25,7 @@ Utilisez `[lm_loterie id="123"]` pour afficher un résumé d'une loterie spécif
 
 Le shortcode `[lm_loterie_summary id="123"]` affiche désormais un bandeau coloré indiquant le jour écoulé depuis le lancement, le nombre d’articles encore disponibles et l’objectif total. Parfait pour insérer un rappel visuel percutant dans la description d’un produit.
 
-Le shortcode `[lm_loterie_grid]` affiche automatiquement toutes les loteries publiées sous forme de grille responsive. Il accepte plusieurs attributs optionnels (`posts_per_page`, `orderby`, `order`, `category`, `ids`, `exclude`, `status`, `empty_message`) pour filtrer ou personnaliser la liste rendue. Utilisez également `columns`, `columns_tablet` et `columns_mobile` pour définir respectivement le nombre de cartes par ligne sur desktop, tablette et mobile (par défaut la grille revient à trois colonnes sur tablette et à une colonne sur mobile lorsqu’un nombre de colonnes desktop est fourni).
+Le shortcode `[lm_loterie_grid]` affiche automatiquement toutes les loteries publiées sous forme de grille responsive. Il accepte plusieurs attributs optionnels (`posts_per_page`, `orderby`, `order`, `category`, `ids`, `exclude`, `status`, `empty_message`) pour filtrer ou personnaliser la liste rendue. Utilisez également `columns`, `columns_tablet` et `columns_mobile` pour définir respectivement le nombre de cartes par ligne sur desktop, tablette et mobile (par défaut la grille revient à trois colonnes sur tablette et à une colonne sur mobile lorsqu’un nombre de colonnes desktop est fourni). La grille embarque désormais le même panneau de filtres dynamiques que `[lm_loterie]` (statut, catégorie, recherche, tri) tout en conservant les colonnes configurées et l’ordre manuel défini via l’attribut `ids`.
 
 Le shortcode `[lm_loterie_sold id="123"]` renvoie uniquement le nombre total de tickets vendus pour la loterie visée, sans balisage HTML additionnel, idéal pour l’intégrer dans une phrase ou un compteur personnalisé.
 
@@ -67,6 +67,7 @@ Lorsque les critères sont remplis (tickets valides disponibles et loterie prêt
 
 ## Historique des versions
 
+- **1.3.8** : filtres dynamiques et AJAX pour `[lm_loterie_grid]`, conservation des colonnes configurées et boutons de filtres harmonisés.
 - **1.3.7** : ajout d'un champ de statut manuel pour les loteries (En cours, À venir, Annulées, Suspendues, Terminées) avec badges et filtres front-end mis à jour.
 - **1.3.6** : ajout du shortcode `[lm_loterie_sold]` pour afficher uniquement le total de tickets vendus.
 - **1.3.4** : optimisation de l'affichage mobile du shortcode `[lm_loterie_grid]` (marges réduites, typographie ajustée et mise en page resserrée).
