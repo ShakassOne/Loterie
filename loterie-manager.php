@@ -3,7 +3,7 @@
 Plugin Name: WinShirt Loterie Manager
 Plugin URI: https://github.com/ShakassOne/loterie-winshirt
 Description: Gestion des loteries pour WooCommerce.
-Version: 1.3.7
+Version: 1.3.8
 Author: Shakass Communication
 Author URI: https://shakass.com
 Text Domain: loterie-winshirt
@@ -19,7 +19,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
 
     final class Loterie_Manager {
 
-        const VERSION = '1.3.7';
+        const VERSION = '1.3.8';
 
         /**
          * Meta key storing total ticket capacity for a loterie (post).
@@ -268,13 +268,38 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             $category = isset( $_POST['category'] ) ? absint( $_POST['category'] ) : 0;
             $search   = isset( $_POST['search'] ) ? sanitize_text_field( wp_unslash( $_POST['search'] ) ) : '';
             $sort     = isset( $_POST['sort'] ) ? sanitize_key( wp_unslash( $_POST['sort'] ) ) : '';
+            $layout   = isset( $_POST['layout'] ) ? sanitize_key( wp_unslash( $_POST['layout'] ) ) : '';
+            $columns  = isset( $_POST['columns'] ) ? absint( $_POST['columns'] ) : 0;
+            $columns_tablet = isset( $_POST['columns_tablet'] ) ? absint( $_POST['columns_tablet'] ) : 0;
+            $columns_mobile = isset( $_POST['columns_mobile'] ) ? absint( $_POST['columns_mobile'] ) : 0;
+            $manual_order   = isset( $_POST['manual_order'] ) ? (bool) absint( $_POST['manual_order'] ) : false;
+
+            $empty_message = isset( $_POST['empty_message'] ) ? sanitize_text_field( wp_unslash( $_POST['empty_message'] ) ) : '';
+
+            $query_args = array();
+            if ( isset( $_POST['query_args'] ) ) {
+                $raw_query_args = wp_unslash( $_POST['query_args'] );
+                if ( is_string( $raw_query_args ) && '' !== $raw_query_args ) {
+                    $decoded = json_decode( $raw_query_args, true );
+                    if ( is_array( $decoded ) ) {
+                        $query_args = $decoded;
+                    }
+                }
+            }
 
             $html = $this->get_filtered_lotteries_html(
                 array(
-                    'status'   => $status,
-                    'category' => $category,
-                    'search'   => $search,
-                    'sort'     => $sort,
+                    'status'         => $status,
+                    'category'       => $category,
+                    'search'         => $search,
+                    'sort'           => $sort,
+                    'layout'         => $layout,
+                    'columns'        => $columns,
+                    'columns_tablet' => $columns_tablet,
+                    'columns_mobile' => $columns_mobile,
+                    'empty_message'  => $empty_message,
+                    'manual_order'   => $manual_order,
+                    'query_args'     => $query_args,
                 )
             );
 
@@ -1430,6 +1455,206 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
         }
 
         /**
+         * Normalizes a grid column value to an integer between 0 and 6.
+         *
+         * @param mixed $value Raw value.
+         *
+         * @return int
+         */
+        private function normalize_grid_columns_value( $value ) {
+            $columns = absint( $value );
+
+            if ( $columns < 1 ) {
+                return 0;
+            }
+
+            return min( $columns, 6 );
+        }
+
+        /**
+         * Sanitizes query arguments provided by the shortcode wrapper.
+         *
+         * @param mixed $query_args Raw query arguments.
+         *
+         * @return array<string, mixed>
+         */
+        private function sanitize_lottery_query_args( $query_args ) {
+            if ( ! is_array( $query_args ) ) {
+                return array();
+            }
+
+            $sanitized = array();
+
+            if ( isset( $query_args['post_status'] ) ) {
+                $statuses = $query_args['post_status'];
+                if ( ! is_array( $statuses ) ) {
+                    $statuses = array( $statuses );
+                }
+
+                $statuses = array_filter(
+                    array_map(
+                        static function ( $status ) {
+                            return sanitize_key( (string) $status );
+                        },
+                        $statuses
+                    )
+                );
+
+                if ( ! empty( $statuses ) ) {
+                    $sanitized['post_status'] = array_values( array_unique( $statuses ) );
+                }
+            }
+
+            if ( isset( $query_args['posts_per_page'] ) ) {
+                $posts_per_page = intval( $query_args['posts_per_page'] );
+                if ( 0 === $posts_per_page ) {
+                    $posts_per_page = -1;
+                }
+
+                $sanitized['posts_per_page'] = $posts_per_page;
+            }
+
+            if ( isset( $query_args['post__in'] ) ) {
+                $post_in = array_filter( array_map( 'absint', (array) $query_args['post__in'] ) );
+                if ( ! empty( $post_in ) ) {
+                    $sanitized['post__in'] = array_values( array_unique( $post_in ) );
+                }
+            }
+
+            if ( isset( $query_args['post__not_in'] ) ) {
+                $post_not_in = array_filter( array_map( 'absint', (array) $query_args['post__not_in'] ) );
+                if ( ! empty( $post_not_in ) ) {
+                    $sanitized['post__not_in'] = array_values( array_unique( $post_not_in ) );
+                }
+            }
+
+            if ( isset( $query_args['category_name'] ) ) {
+                $categories = array_filter( array_map( 'sanitize_title', preg_split( '/[\s,]+/', (string) $query_args['category_name'] ) ) );
+                if ( ! empty( $categories ) ) {
+                    $sanitized['category_name'] = implode( ',', $categories );
+                }
+            }
+
+            if ( isset( $query_args['orderby'] ) ) {
+                $allowed_orderby = array( 'post__in', 'date', 'title', 'menu_order', 'modified', 'rand' );
+                $orderby         = strtolower( (string) $query_args['orderby'] );
+
+                if ( in_array( $orderby, $allowed_orderby, true ) ) {
+                    $sanitized['orderby'] = $orderby;
+                }
+            }
+
+            if ( isset( $query_args['order'] ) ) {
+                $order = strtoupper( (string) $query_args['order'] );
+                if ( in_array( $order, array( 'ASC', 'DESC' ), true ) ) {
+                    $sanitized['order'] = $order;
+                }
+            }
+
+            return $sanitized;
+        }
+
+        /**
+         * Builds the HTML markup for a collection of loterie cards.
+         *
+         * @param array<int, string> $cards           Rendered cards.
+         * @param string             $layout          Layout identifier.
+         * @param int                $columns         Desktop columns.
+         * @param int                $columns_tablet  Tablet columns.
+         * @param int                $columns_mobile  Mobile columns.
+         *
+         * @return string
+         */
+        private function render_lottery_collection_markup( $cards, $layout, $columns, $columns_tablet, $columns_mobile ) {
+            if ( empty( $cards ) ) {
+                return '';
+            }
+
+            $layout = ( 'grid' === $layout ) ? 'grid' : 'list';
+
+            if ( 'grid' !== $layout ) {
+                $items = array();
+                foreach ( $cards as $card_html ) {
+                    if ( '' === trim( $card_html ) ) {
+                        continue;
+                    }
+
+                    $items[] = '<div class="lm-lottery-list__item">' . $card_html . '</div>';
+                }
+
+                if ( empty( $items ) ) {
+                    return '';
+                }
+
+                return '<div class="lm-lottery-list__items">' . implode( '', $items ) . '</div>';
+            }
+
+            $columns        = $this->normalize_grid_columns_value( $columns );
+            $columns_tablet = $this->normalize_grid_columns_value( $columns_tablet );
+            $columns_mobile = $this->normalize_grid_columns_value( $columns_mobile );
+
+            if ( $columns > 0 && 0 === $columns_tablet ) {
+                $columns_tablet = min( $columns, 3 );
+            }
+
+            if ( ( $columns > 0 || $columns_tablet > 0 ) && 0 === $columns_mobile ) {
+                $columns_mobile = 1;
+            }
+
+            $grid_classes = array( 'lm-lottery-grid' );
+            $grid_styles  = array();
+
+            if ( $columns > 0 || $columns_tablet > 0 || $columns_mobile > 0 ) {
+                $grid_classes[] = 'lm-lottery-grid--has-config';
+            }
+
+            if ( $columns > 0 ) {
+                $grid_styles[] = '--lm-grid-template-columns: repeat(' . $columns . ', minmax(0, 1fr))';
+                $grid_styles[] = '--lm-grid-min-width: 0px';
+            }
+
+            if ( $columns_tablet > 0 ) {
+                $grid_styles[] = '--lm-grid-template-columns-tablet: repeat(' . $columns_tablet . ', minmax(0, 1fr))';
+            }
+
+            if ( $columns_mobile > 0 ) {
+                $grid_styles[] = '--lm-grid-template-columns-mobile: repeat(' . $columns_mobile . ', minmax(0, 1fr))';
+            }
+
+            $items = array();
+            foreach ( $cards as $card_html ) {
+                if ( '' === trim( $card_html ) ) {
+                    continue;
+                }
+
+                $items[] = '<div class="lm-lottery-grid__item">' . $card_html . '</div>';
+            }
+
+            if ( empty( $items ) ) {
+                return '';
+            }
+
+            $attributes = array(
+                'class' => implode( ' ', array_map( 'sanitize_html_class', $grid_classes ) ),
+            );
+
+            if ( ! empty( $grid_styles ) ) {
+                $attributes['style'] = implode( '; ', $grid_styles );
+            }
+
+            $attribute_string = '';
+            foreach ( $attributes as $attribute => $value ) {
+                if ( '' === $value ) {
+                    continue;
+                }
+
+                $attribute_string .= sprintf( ' %s="%s"', $attribute, esc_attr( $value ) );
+            }
+
+            return '<div' . $attribute_string . '>' . implode( '', $items ) . '</div>';
+        }
+
+        /**
          * Renders loterie data via shortcode.
          *
          * @param array $atts Shortcode attributes.
@@ -1614,18 +1839,39 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
          */
         private function get_filtered_lotteries_html( $args = array() ) {
             $defaults = array(
-                'status'   => '',
-                'category' => 0,
-                'search'   => '',
-                'sort'     => 'date_desc',
+                'status'         => '',
+                'category'       => 0,
+                'search'         => '',
+                'sort'           => 'date_desc',
+                'layout'         => 'list',
+                'columns'        => 0,
+                'columns_tablet' => 0,
+                'columns_mobile' => 0,
+                'empty_message'  => __( 'Aucune loterie ne correspond à votre recherche.', 'loterie-manager' ),
+                'manual_order'   => false,
+                'query_args'     => array(),
             );
 
             $args = wp_parse_args( $args, $defaults );
 
-            $status   = $this->normalize_loterie_status_filter( $args['status'] );
-            $category = absint( $args['category'] );
-            $search   = sanitize_text_field( (string) $args['search'] );
-            $sort_key = $this->normalize_loterie_sort_key( $args['sort'] );
+            $status        = $this->normalize_loterie_status_filter( $args['status'] );
+            $category      = absint( $args['category'] );
+            $search        = sanitize_text_field( (string) $args['search'] );
+            $sort_key      = $this->normalize_loterie_sort_key( $args['sort'] );
+            $layout        = sanitize_key( (string) $args['layout'] );
+            $columns       = $this->normalize_grid_columns_value( $args['columns'] );
+            $columns_tablet = $this->normalize_grid_columns_value( $args['columns_tablet'] );
+            $columns_mobile = $this->normalize_grid_columns_value( $args['columns_mobile'] );
+            $manual_order  = (bool) $args['manual_order'];
+            $empty_message = (string) $args['empty_message'];
+
+            if ( $columns > 0 && 0 === $columns_tablet ) {
+                $columns_tablet = min( $columns, 3 );
+            }
+
+            if ( ( $columns > 0 || $columns_tablet > 0 ) && 0 === $columns_mobile ) {
+                $columns_mobile = 1;
+            }
 
             $sort_options = $this->get_loterie_sort_options();
             $sort_config  = isset( $sort_options[ $sort_key ] ) ? $sort_options[ $sort_key ] : $sort_options['date_desc'];
@@ -1634,13 +1880,28 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 'post_type'           => 'post',
                 'post_status'         => 'publish',
                 'posts_per_page'      => -1,
-                'orderby'             => $sort_config['orderby'],
                 'ignore_sticky_posts' => true,
                 'no_found_rows'       => true,
             );
 
-            if ( isset( $sort_config['order'] ) && 'rand' !== $sort_config['orderby'] ) {
-                $query_args['order'] = $sort_config['order'];
+            $custom_query_args = $this->sanitize_lottery_query_args( $args['query_args'] );
+            if ( ! empty( $custom_query_args ) ) {
+                $query_args = wp_parse_args( $custom_query_args, $query_args );
+            }
+
+            $apply_sort = true;
+            if ( $manual_order && isset( $query_args['post__in'] ) && 'date_desc' === $sort_key ) {
+                $apply_sort = false;
+            }
+
+            if ( $apply_sort ) {
+                $query_args['orderby'] = $sort_config['orderby'];
+
+                if ( isset( $sort_config['order'] ) && 'rand' !== $sort_config['orderby'] ) {
+                    $query_args['order'] = $sort_config['order'];
+                } else {
+                    unset( $query_args['order'] );
+                }
             }
 
             if ( '' !== $search ) {
@@ -1653,7 +1914,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
 
             $query = new WP_Query( $query_args );
 
-            $items = array();
+            $cards = array();
             $now   = current_time( 'timestamp' );
 
             if ( $query->have_posts() ) {
@@ -1677,17 +1938,31 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                         continue;
                     }
 
-                    $items[] = '<div class="lm-lottery-list__item">' . $card_html . '</div>';
+                    $cards[] = $card_html;
                 }
             }
 
             wp_reset_postdata();
 
-            if ( empty( $items ) ) {
-                return '<p class="lm-lottery-list__empty">' . esc_html__( 'Aucune loterie ne correspond à votre recherche.', 'loterie-manager' ) . '</p>';
+            if ( empty( $cards ) ) {
+                if ( '' === $empty_message ) {
+                    return '';
+                }
+
+                return '<p class="lm-lottery-list__empty">' . esc_html( $empty_message ) . '</p>';
             }
 
-            return '<div class="lm-lottery-list__items">' . implode( '', $items ) . '</div>';
+            $markup = $this->render_lottery_collection_markup( $cards, $layout, $columns, $columns_tablet, $columns_mobile );
+
+            if ( '' === $markup ) {
+                if ( '' === $empty_message ) {
+                    return '';
+                }
+
+                return '<p class="lm-lottery-list__empty">' . esc_html( $empty_message ) . '</p>';
+            }
+
+            return $markup;
         }
 
         /**
@@ -1794,61 +2069,24 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 $posts_per_page = -1;
             }
 
-            $allowed_orderby = array( 'date', 'title', 'modified', 'menu_order', 'rand' );
+            $allowed_orderby = array( 'date', 'title' );
             $orderby         = in_array( $atts['orderby'], $allowed_orderby, true ) ? $atts['orderby'] : 'date';
 
             $order = strtoupper( $atts['order'] );
             $order = in_array( $order, array( 'ASC', 'DESC' ), true ) ? $order : 'DESC';
 
-            $statuses = array_filter( array_map( 'trim', explode( ',', (string) $atts['status'] ) ) );
+            $statuses = array_filter( array_map( 'sanitize_key', array_map( 'trim', explode( ',', (string) $atts['status'] ) ) ) );
             if ( empty( $statuses ) ) {
                 $statuses = array( 'publish' );
             }
 
-            $query_args = array(
-                'post_type'           => 'post',
-                'post_status'         => $statuses,
-                'posts_per_page'      => $posts_per_page,
-                'orderby'             => $orderby,
-                'ignore_sticky_posts' => true,
-                'no_found_rows'       => true,
-            );
-
-            if ( 'rand' !== $orderby ) {
-                $query_args['order'] = $order;
-            }
-
             $ids = array_filter( array_map( 'absint', preg_split( '/[\s,]+/', (string) $atts['ids'] ) ) );
-            if ( ! empty( $ids ) ) {
-                $query_args['post__in'] = $ids;
-                $query_args['orderby']  = 'post__in';
-            }
-
             $exclude = array_filter( array_map( 'absint', preg_split( '/[\s,]+/', (string) $atts['exclude'] ) ) );
-            if ( ! empty( $exclude ) ) {
-                $query_args['post__not_in'] = $exclude;
-            }
+            $category_slugs = array_filter( array_map( 'sanitize_title', preg_split( '/[\s,]+/', (string) $atts['category'] ) ) );
 
-            if ( ! empty( $atts['category'] ) ) {
-                $categories = array_filter( array_map( 'sanitize_title', preg_split( '/[\s,]+/', $atts['category'] ) ) );
-                if ( ! empty( $categories ) ) {
-                    $query_args['category_name'] = implode( ',', $categories );
-                }
-            }
-
-            $normalize_columns = static function( $value ) {
-                $columns = absint( $value );
-
-                if ( $columns < 1 ) {
-                    return 0;
-                }
-
-                return min( $columns, 6 );
-            };
-
-            $columns        = $normalize_columns( $atts['columns'] );
-            $columns_tablet = $normalize_columns( $atts['columns_tablet'] );
-            $columns_mobile = $normalize_columns( $atts['columns_mobile'] );
+            $columns        = $this->normalize_grid_columns_value( $atts['columns'] );
+            $columns_tablet = $this->normalize_grid_columns_value( $atts['columns_tablet'] );
+            $columns_mobile = $this->normalize_grid_columns_value( $atts['columns_mobile'] );
 
             if ( $columns > 0 && 0 === $columns_tablet ) {
                 $columns_tablet = min( $columns, 3 );
@@ -1858,83 +2096,151 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 $columns_mobile = 1;
             }
 
-            $query = new WP_Query( $query_args );
-
-            $cards = array();
-            if ( $query->have_posts() ) {
-                while ( $query->have_posts() ) {
-                    $query->the_post();
-                    $context = $this->get_loterie_display_context( get_the_ID() );
-                    if ( empty( $context ) ) {
-                        continue;
-                    }
-
-                    $card_html = $this->render_loterie_card( $context );
-                    if ( '' !== trim( $card_html ) ) {
-                        $cards[] = $card_html;
-                    }
-                }
+            $sort_key = 'date_desc';
+            if ( 'date' === $orderby ) {
+                $sort_key = ( 'ASC' === $order ) ? 'date_asc' : 'date_desc';
+            } elseif ( 'title' === $orderby ) {
+                $sort_key = ( 'ASC' === $order ) ? 'title_asc' : 'title_desc';
             }
 
-            wp_reset_postdata();
+            $manual_order = false;
 
-            if ( empty( $cards ) ) {
-                if ( '' === $atts['empty_message'] ) {
-                    return '';
-                }
-
-                return sprintf(
-                    '<div class="lm-lottery-grid lm-lottery-grid--empty"><p>%s</p></div>',
-                    esc_html( $atts['empty_message'] )
-                );
-            }
-
-            $grid_classes = array( 'lm-lottery-grid' );
-            $grid_styles  = array();
-
-            if ( $columns > 0 || $columns_tablet > 0 || $columns_mobile > 0 ) {
-                $grid_classes[] = 'lm-lottery-grid--has-config';
-            }
-
-            if ( $columns > 0 ) {
-                $grid_styles[] = '--lm-grid-template-columns: repeat(' . $columns . ', minmax(0, 1fr))';
-                $grid_styles[] = '--lm-grid-min-width: 0px';
-            }
-
-            if ( $columns_tablet > 0 ) {
-                $grid_styles[] = '--lm-grid-template-columns-tablet: repeat(' . $columns_tablet . ', minmax(0, 1fr))';
-            }
-
-            if ( $columns_mobile > 0 ) {
-                $grid_styles[] = '--lm-grid-template-columns-mobile: repeat(' . $columns_mobile . ', minmax(0, 1fr))';
-            }
-
-            $grid_attributes = array(
-                'class' => implode( ' ', array_map( 'sanitize_html_class', $grid_classes ) ),
+            $query_overrides = array(
+                'post_status'    => $statuses,
+                'posts_per_page' => $posts_per_page,
             );
 
-            if ( ! empty( $grid_styles ) ) {
-                $grid_attributes['style'] = implode( '; ', $grid_styles );
+            if ( ! empty( $ids ) ) {
+                $query_overrides['post__in'] = $ids;
+                $query_overrides['orderby']  = 'post__in';
+                $manual_order = true;
             }
 
-            $attributes_string = '';
+            if ( ! empty( $exclude ) ) {
+                $query_overrides['post__not_in'] = $exclude;
+            }
 
-            foreach ( $grid_attributes as $attribute => $value ) {
-                if ( '' === $value ) {
-                    continue;
-                }
+            if ( ! empty( $category_slugs ) ) {
+                $query_overrides['category_name'] = implode( ',', $category_slugs );
+            }
 
-                $attributes_string .= sprintf( ' %s="%s"', $attribute, esc_attr( $value ) );
+            wp_enqueue_script( 'loterie-manager-lottery-filters' );
+
+            $sort_options = $this->get_loterie_sort_options();
+            $categories   = get_categories(
+                array(
+                    'hide_empty' => true,
+                )
+            );
+
+            $form_uid       = uniqid( 'lm-lottery-filters-' );
+            $status_field   = $form_uid . '-status';
+            $category_field = $form_uid . '-category';
+            $search_field   = $form_uid . '-search';
+            $sort_field     = $form_uid . '-sort';
+
+            $initial_html = $this->get_filtered_lotteries_html(
+                array(
+                    'sort'           => $sort_key,
+                    'layout'         => 'grid',
+                    'columns'        => $columns,
+                    'columns_tablet' => $columns_tablet,
+                    'columns_mobile' => $columns_mobile,
+                    'empty_message'  => $atts['empty_message'],
+                    'manual_order'   => $manual_order,
+                    'query_args'     => $query_overrides,
+                )
+            );
+
+            $wrapper_attributes = array(
+                'class'              => 'lm-lottery-list lm-lottery-list--grid',
+                'data-default-sort'  => $sort_key,
+                'data-layout'        => 'grid',
+                'data-columns'       => $columns,
+                'data-columns-tablet'=> $columns_tablet,
+                'data-columns-mobile'=> $columns_mobile,
+                'data-empty-message' => $atts['empty_message'],
+                'data-manual-order'  => $manual_order ? '1' : '',
+            );
+
+            $query_args_json = wp_json_encode( $query_overrides );
+            if ( $query_args_json ) {
+                $wrapper_attributes['data-query-args'] = $query_args_json;
+            }
+
+            if ( $columns <= 0 ) {
+                unset( $wrapper_attributes['data-columns'] );
+            }
+
+            if ( $columns_tablet <= 0 ) {
+                unset( $wrapper_attributes['data-columns-tablet'] );
+            }
+
+            if ( $columns_mobile <= 0 ) {
+                unset( $wrapper_attributes['data-columns-mobile'] );
+            }
+
+            if ( ! $manual_order ) {
+                unset( $wrapper_attributes['data-manual-order'] );
             }
 
             ob_start();
             ?>
-            <div<?php echo $attributes_string; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>>
-                <?php foreach ( $cards as $card_html ) : ?>
-                    <div class="lm-lottery-grid__item">
-                        <?php echo $card_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+            <div<?php foreach ( $wrapper_attributes as $attribute => $value ) :
+                if ( '' === $value && 'data-empty-message' !== $attribute ) {
+                    continue;
+                }
+                printf( ' %s="%s"', esc_attr( $attribute ), esc_attr( (string) $value ) );
+            endforeach; ?>>
+                <form class="lm-lottery-filters" action="#" method="post" novalidate>
+                    <div class="lm-lottery-filters__field lm-lottery-filters__field--status">
+                        <label for="<?php echo esc_attr( $status_field ); ?>"><?php esc_html_e( 'Statut des loteries', 'loterie-manager' ); ?></label>
+                        <select id="<?php echo esc_attr( $status_field ); ?>" name="status">
+                            <option value="" selected="selected"><?php esc_html_e( 'Tous les statuts', 'loterie-manager' ); ?></option>
+                            <option value="active"><?php esc_html_e( 'En cours', 'loterie-manager' ); ?></option>
+                            <option value="upcoming"><?php esc_html_e( 'À venir', 'loterie-manager' ); ?></option>
+                            <option value="cancelled"><?php esc_html_e( 'Annulées', 'loterie-manager' ); ?></option>
+                            <option value="suspended"><?php esc_html_e( 'Suspendues', 'loterie-manager' ); ?></option>
+                            <option value="ended"><?php esc_html_e( 'Terminées', 'loterie-manager' ); ?></option>
+                        </select>
                     </div>
-                <?php endforeach; ?>
+
+                    <div class="lm-lottery-filters__field lm-lottery-filters__field--category">
+                        <label for="<?php echo esc_attr( $category_field ); ?>"><?php esc_html_e( 'Catégorie', 'loterie-manager' ); ?></label>
+                        <select id="<?php echo esc_attr( $category_field ); ?>" name="category">
+                            <option value="" selected="selected"><?php esc_html_e( 'Toutes les catégories', 'loterie-manager' ); ?></option>
+                            <?php foreach ( $categories as $category ) : ?>
+                                <option value="<?php echo esc_attr( $category->term_id ); ?>"><?php echo esc_html( $category->name ); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="lm-lottery-filters__field lm-lottery-filters__field--search">
+                        <label for="<?php echo esc_attr( $search_field ); ?>"><?php esc_html_e( 'Recherche', 'loterie-manager' ); ?></label>
+                        <input type="search" id="<?php echo esc_attr( $search_field ); ?>" name="search" placeholder="<?php esc_attr_e( 'Rechercher une loterie', 'loterie-manager' ); ?>" />
+                    </div>
+
+                    <div class="lm-lottery-filters__field lm-lottery-filters__field--sort">
+                        <label for="<?php echo esc_attr( $sort_field ); ?>"><?php esc_html_e( 'Trier par', 'loterie-manager' ); ?></label>
+                        <select id="<?php echo esc_attr( $sort_field ); ?>" name="sort">
+                            <?php foreach ( $sort_options as $key => $option ) :
+                                $label = isset( $option['label'] ) ? $option['label'] : $key;
+                                ?>
+                                <option value="<?php echo esc_attr( $key ); ?>"<?php selected( $sort_key, $key ); ?>><?php echo esc_html( $label ); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="lm-lottery-filters__actions">
+                        <button type="submit" class="lm-lottery-filters__submit"><?php esc_html_e( 'Filtrer', 'loterie-manager' ); ?></button>
+                        <button type="reset" class="lm-lottery-filters__reset"><?php esc_html_e( 'Réinitialiser', 'loterie-manager' ); ?></button>
+                    </div>
+                </form>
+
+                <div class="lm-lottery-list__loading" role="status" aria-live="polite" aria-hidden="true"></div>
+                <div class="lm-lottery-list__results" aria-live="polite" aria-busy="false">
+                    <?php echo $initial_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+                </div>
             </div>
             <?php
 
