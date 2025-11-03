@@ -13,6 +13,7 @@ Le plugin **Loterie Manager** ajoute une couche de gestion de loteries aux sites
 1. Créez ou éditez un **article WordPress** (type `post`).
 2. Dans la métabox **Paramètres de loterie**, complétez les informations suivantes :
    - **Capacité totale de tickets** : nombre maximal de tickets disponibles.
+   - **Statut affiché** : sélection manuelle du badge visible côté site (automatique par défaut, ou bien *En cours*, *À venir*, *Annulées*, *Suspendues*, *Terminées*).
    - **Description du lot** : informations sur le lot mis en jeu.
    - **Date de fin** : échéance de la loterie (affichée sur le site et dans l'espace client).
 3. Publiez l'article pour qu'il devienne disponible comme loterie (les brouillons, articles privés ou planifiés ne seront pas proposés lors de la sélection sur les produits).
@@ -66,6 +67,7 @@ Lorsque les critères sont remplis (tickets valides disponibles et loterie prêt
 
 ## Historique des versions
 
+- **1.3.7** : ajout d'un champ de statut manuel pour les loteries (En cours, À venir, Annulées, Suspendues, Terminées) avec badges et filtres front-end mis à jour.
 - **1.3.6** : ajout du shortcode `[lm_loterie_sold]` pour afficher uniquement le total de tickets vendus.
 - **1.3.4** : optimisation de l'affichage mobile du shortcode `[lm_loterie_grid]` (marges réduites, typographie ajustée et mise en page resserrée).
 - **1.3.3** : filtres dynamiques pour le shortcode `[lm_loterie]`, rechargement AJAX et nouveaux styles cohérents avec la grille.
@@ -96,6 +98,7 @@ Le code principal du plugin se trouve dans `loterie-manager.php` et suit une arc
 | Contexte | Clé méta | Description |
 | --- | --- | --- |
 | Article | `_lm_ticket_capacity` | Capacité totale de tickets |
+| Article | `_lm_loterie_status` | Statut affiché manuellement sur le site |
 | Article | `_lm_lot_description` | Description du lot |
 | Article | `_lm_end_date` | Date de fin |
 | Article | `_lm_tickets_sold` | Tickets vendus (mis à jour à la validation des commandes et lors des réaffectations) |

@@ -3,7 +3,7 @@
 Plugin Name: WinShirt Loterie Manager
 Plugin URI: https://github.com/ShakassOne/loterie-winshirt
 Description: Gestion des loteries pour WooCommerce.
-Version: 1.3.6
+Version: 1.3.7
 Author: Shakass Communication
 Author URI: https://shakass.com
 Text Domain: loterie-winshirt
@@ -19,7 +19,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
 
     final class Loterie_Manager {
 
-        const VERSION = '1.3.6';
+        const VERSION = '1.3.7';
 
         /**
          * Meta key storing total ticket capacity for a loterie (post).
@@ -35,6 +35,11 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
          * Meta key storing loterie end date.
          */
         const META_END_DATE = '_lm_end_date';
+
+        /**
+         * Meta key storing manual status override for a loterie.
+         */
+        const META_STATUS_OVERRIDE = '_lm_loterie_status';
 
         /**
          * Meta key storing number of tickets sold.
@@ -1016,6 +1021,36 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
         }
 
         /**
+         * Returns manual status options for loterie posts.
+         *
+         * @return array<string, array<string, string>>
+         */
+        private function get_loterie_status_options() {
+            return array(
+                'active'    => array(
+                    'label' => __( 'En cours', 'loterie-manager' ),
+                    'class' => 'is-active',
+                ),
+                'upcoming'  => array(
+                    'label' => __( 'À venir', 'loterie-manager' ),
+                    'class' => 'is-upcoming',
+                ),
+                'cancelled' => array(
+                    'label' => __( 'Annulée', 'loterie-manager' ),
+                    'class' => 'is-cancelled',
+                ),
+                'suspended' => array(
+                    'label' => __( 'Suspendue', 'loterie-manager' ),
+                    'class' => 'is-suspended',
+                ),
+                'ended'     => array(
+                    'label' => __( 'Terminée', 'loterie-manager' ),
+                    'class' => 'is-ended',
+                ),
+            );
+        }
+
+        /**
          * Renders the loterie meta box.
          *
          * @param WP_Post $post Current post.
@@ -1026,11 +1061,22 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             $capacity = intval( get_post_meta( $post->ID, self::META_TICKET_CAPACITY, true ) );
             $lot      = get_post_meta( $post->ID, self::META_LOT_DESCRIPTION, true );
             $end_date = get_post_meta( $post->ID, self::META_END_DATE, true );
+            $status          = get_post_meta( $post->ID, self::META_STATUS_OVERRIDE, true );
+            $status_options  = $this->get_loterie_status_options();
 
             ?>
             <p>
                 <label for="lm_ticket_capacity"><strong><?php esc_html_e( 'Capacité totale de tickets', 'loterie-manager' ); ?></strong></label><br />
                 <input type="number" id="lm_ticket_capacity" name="lm_ticket_capacity" min="0" step="1" value="<?php echo esc_attr( $capacity ); ?>" />
+            </p>
+            <p>
+                <label for="lm_loterie_status"><strong><?php esc_html_e( 'Statut affiché', 'loterie-manager' ); ?></strong></label><br />
+                <select id="lm_loterie_status" name="lm_loterie_status">
+                    <option value=""<?php selected( '', $status ); ?>><?php esc_html_e( 'Automatique (calculé par le plugin)', 'loterie-manager' ); ?></option>
+                    <?php foreach ( $status_options as $value => $data ) : ?>
+                        <option value="<?php echo esc_attr( $value ); ?>"<?php selected( $status, $value ); ?>><?php echo esc_html( $data['label'] ); ?></option>
+                    <?php endforeach; ?>
+                </select>
             </p>
             <p>
                 <label for="lm_lot_description"><strong><?php esc_html_e( 'Description du lot', 'loterie-manager' ); ?></strong></label><br />
@@ -1064,6 +1110,14 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
 
             $capacity = isset( $_POST['lm_ticket_capacity'] ) ? intval( wp_unslash( $_POST['lm_ticket_capacity'] ) ) : 0;
             update_post_meta( $post_id, self::META_TICKET_CAPACITY, max( 0, $capacity ) );
+
+            $status_override = isset( $_POST['lm_loterie_status'] ) ? sanitize_key( wp_unslash( $_POST['lm_loterie_status'] ) ) : '';
+            $status_options  = $this->get_loterie_status_options();
+            if ( '' === $status_override || ! isset( $status_options[ $status_override ] ) ) {
+                delete_post_meta( $post_id, self::META_STATUS_OVERRIDE );
+            } else {
+                update_post_meta( $post_id, self::META_STATUS_OVERRIDE, $status_override );
+            }
 
             $lot = isset( $_POST['lm_lot_description'] ) ? wp_kses_post( wp_unslash( $_POST['lm_lot_description'] ) ) : '';
             update_post_meta( $post_id, self::META_LOT_DESCRIPTION, $lot );
@@ -1160,6 +1214,9 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 $status_class = $is_active ? 'is-active' : 'is-ended';
             }
 
+            $status_display_code = isset( $stats['status_display_code'] ) ? $stats['status_display_code'] : ( $is_active ? 'active' : 'ended' );
+            $status_manual_code  = isset( $stats['status_manual_code'] ) ? $stats['status_manual_code'] : '';
+
             $lot_value_label = '';
             if ( '' !== $lot && null !== $lot ) {
                 $normalized_value = preg_replace( '/[^0-9,\.\-]/', '', (string) $lot );
@@ -1239,6 +1296,8 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 'goal_label'         => $goal_label,
                 'status_label'       => $status_label,
                 'status_class'       => $status_class,
+                'status_display_code'=> $status_display_code,
+                'status_manual_code' => $status_manual_code,
                 'is_featured'        => $is_featured,
                 'formatted_draw_date'=> $formatted_draw_date,
                 'permalink'          => get_permalink( $post_id ),
@@ -1439,6 +1498,9 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                         <select id="<?php echo esc_attr( $status_field ); ?>" name="status">
                             <option value="" selected="selected"><?php esc_html_e( 'Tous les statuts', 'loterie-manager' ); ?></option>
                             <option value="active"><?php esc_html_e( 'En cours', 'loterie-manager' ); ?></option>
+                            <option value="upcoming"><?php esc_html_e( 'À venir', 'loterie-manager' ); ?></option>
+                            <option value="cancelled"><?php esc_html_e( 'Annulées', 'loterie-manager' ); ?></option>
+                            <option value="suspended"><?php esc_html_e( 'Suspendues', 'loterie-manager' ); ?></option>
                             <option value="ended"><?php esc_html_e( 'Terminées', 'loterie-manager' ); ?></option>
                         </select>
                     </div>
@@ -1538,7 +1600,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
          */
         private function normalize_loterie_status_filter( $status ) {
             $status   = sanitize_key( (string) $status );
-            $allowed  = array( 'active', 'ended' );
+            $allowed  = array( 'active', 'ended', 'upcoming', 'cancelled', 'suspended' );
 
             return in_array( $status, $allowed, true ) ? $status : '';
         }
@@ -1603,13 +1665,10 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                         continue;
                     }
 
-                    $is_active = $this->is_context_active( $context, $now );
+                    $is_active    = $this->is_context_active( $context, $now );
+                    $display_code = isset( $context['status_display_code'] ) ? $context['status_display_code'] : ( $is_active ? 'active' : 'ended' );
 
-                    if ( 'active' === $status && ! $is_active ) {
-                        continue;
-                    }
-
-                    if ( 'ended' === $status && $is_active ) {
+                    if ( '' !== $status && $status !== $display_code ) {
                         continue;
                     }
 
@@ -1650,6 +1709,10 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             }
 
             $stats = $this->get_lottery_stats( $post_id );
+            if ( isset( $stats['status_display_code'] ) && '' !== $stats['status_display_code'] ) {
+                return 'active' === $stats['status_display_code'];
+            }
+
             if ( isset( $stats['status_code'] ) ) {
                 return in_array( $stats['status_code'], array( 'active', 'complete' ), true );
             }
@@ -1673,6 +1736,16 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
          * @return bool
          */
         private function is_context_active( $context, $timestamp = null ) {
+            if ( isset( $context['status_display_code'] ) && '' !== $context['status_display_code'] ) {
+                if ( 'active' === $context['status_display_code'] ) {
+                    return true;
+                }
+
+                if ( in_array( $context['status_display_code'], array( 'upcoming', 'cancelled', 'suspended', 'ended', 'draft' ), true ) ) {
+                    return false;
+                }
+            }
+
             if ( isset( $context['status_class'] ) ) {
                 $status_class = (string) $context['status_class'];
 
@@ -2868,21 +2941,33 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             $progress            = $capacity > 0 ? min( 100, round( ( $valid_count / max( 1, $capacity ) ) * 100, 2 ) ) : 0;
 
             if ( 'publish' !== $status_raw ) {
-                $status_code  = 'draft';
-                $status_label = __( 'Brouillon', 'loterie-manager' );
-                $status_class = 'is-draft';
+                $status_code         = 'draft';
+                $status_label        = __( 'Brouillon', 'loterie-manager' );
+                $status_class        = 'is-draft';
+                $status_display_code = 'draft';
             } elseif ( $end_time && $end_time < $now ) {
-                $status_code  = 'closed';
-                $status_label = __( 'Terminée', 'loterie-manager' );
-                $status_class = 'is-ended';
+                $status_code         = 'closed';
+                $status_label        = __( 'Terminée', 'loterie-manager' );
+                $status_class        = 'is-ended';
+                $status_display_code = 'ended';
             } elseif ( $capacity > 0 && $valid_count >= $capacity ) {
-                $status_code  = 'complete';
-                $status_label = __( 'Objectif atteint', 'loterie-manager' );
-                $status_class = 'is-complete';
+                $status_code         = 'complete';
+                $status_label        = __( 'Objectif atteint', 'loterie-manager' );
+                $status_class        = 'is-complete';
+                $status_display_code = 'active';
             } else {
-                $status_code  = 'active';
-                $status_label = __( 'En cours', 'loterie-manager' );
-                $status_class = 'is-active';
+                $status_code         = 'active';
+                $status_label        = __( 'En cours', 'loterie-manager' );
+                $status_class        = 'is-active';
+                $status_display_code = 'active';
+            }
+
+            $manual_status = sanitize_key( (string) get_post_meta( $post_id, self::META_STATUS_OVERRIDE, true ) );
+            $status_options = $this->get_loterie_status_options();
+            if ( '' !== $manual_status && isset( $status_options[ $manual_status ] ) ) {
+                $status_label        = $status_options[ $manual_status ]['label'];
+                $status_class        = $status_options[ $manual_status ]['class'];
+                $status_display_code = $manual_status;
             }
 
             $alerts = array();
@@ -2917,6 +3002,8 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 'conversion_rate'     => $orders_count > 0 ? round( ( $valid_count / $orders_count ) * 100, 2 ) : 0,
                 'progress'            => $progress,
                 'status_code'         => $status_code,
+                'status_display_code' => $status_display_code,
+                'status_manual_code'  => '' !== $manual_status && isset( $status_options[ $manual_status ] ) ? $manual_status : '',
                 'status_label'        => $status_label,
                 'status_class'        => $status_class,
                 'end_date'            => $end_date,
