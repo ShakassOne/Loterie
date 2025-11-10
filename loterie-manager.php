@@ -3,7 +3,7 @@
 Plugin Name: WinShirt Loterie Manager
 Plugin URI: https://github.com/ShakassOne/loterie-winshirt
 Description: Gestion des loteries pour WooCommerce.
-Version: 1.3.8
+Version: 1.3.9
 Author: Shakass Communication
 Author URI: https://shakass.com
 Text Domain: loterie-winshirt
@@ -19,7 +19,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
 
     final class Loterie_Manager {
 
-        const VERSION = '1.3.8';
+        const VERSION = '1.3.9';
 
         /**
          * Meta key storing total ticket capacity for a loterie (post).
@@ -3449,26 +3449,29 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
          * @return array<string, mixed>
          */
         private function get_ticket_status_from_order( $order, $loterie_id ) {
-            $status         = $order->get_status();
-            $reassignable   = $this->is_reassignment_enabled() && $this->is_reassignment_enabled_for_loterie( $loterie_id );
-            $excluded       = $this->get_order_excluded_statuses();
-            $normalized     = sanitize_key( str_replace( 'wc-', '', (string) $status ) );
-            $is_excluded    = in_array( $normalized, $excluded, true );
-            $reason_code    = '';
-            $note           = '';
-            $valid          = true;
+            $status               = $order->get_status();
+            $reassignment_allowed = $this->is_reassignment_enabled() && $this->is_reassignment_enabled_for_loterie( $loterie_id );
+            $excluded             = $this->get_order_excluded_statuses();
+            $normalized           = sanitize_key( str_replace( 'wc-', '', (string) $status ) );
+            $is_excluded          = in_array( $normalized, $excluded, true );
+            $reason_code          = '';
+            $note                 = '';
+            $valid                = true;
 
-            if ( $reassignable && $is_excluded ) {
+            if ( $is_excluded ) {
                 $valid       = false;
                 $reason_code = 'order-excluded';
-                $note        = sprintf( __( 'Commande %s : ticket invalidé automatiquement.', 'loterie-manager' ), wc_get_order_status_name( $status ) );
+                $status_name = function_exists( 'wc_get_order_status_name' )
+                    ? wc_get_order_status_name( $status )
+                    : ( '' !== $normalized ? ucfirst( $normalized ) : __( 'inconnu', 'loterie-manager' ) );
+                $note        = sprintf( __( 'Commande %s : ticket invalidé automatiquement.', 'loterie-manager' ), $status_name );
             }
 
             return array(
                 'status'       => $valid ? 'valid' : 'invalid',
                 'label'        => $valid ? __( 'Valide pour tirage', 'loterie-manager' ) : __( 'Invalidé', 'loterie-manager' ),
                 'note'         => $note,
-                'reassignable' => $reassignable && $valid,
+                'reassignable' => $reassignment_allowed && $valid,
                 'reason_code'  => $reason_code,
             );
         }
