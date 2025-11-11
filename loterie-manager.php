@@ -3,7 +3,7 @@
 Plugin Name: WinShirt Loterie Manager
 Plugin URI: https://github.com/ShakassOne/loterie-winshirt
 Description: Gestion des loteries pour WooCommerce.
-Version: 1.3.11
+Version: 1.3.12
 Author: Shakass Communication
 Author URI: https://shakass.com
 Text Domain: loterie-winshirt
@@ -19,7 +19,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
 
     final class Loterie_Manager {
 
-        const VERSION = '1.3.11';
+        const VERSION = '1.3.12';
 
         /**
          * Meta key storing total ticket capacity for a loterie (post).
@@ -3668,6 +3668,16 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                     $reset_notice = __( 'Réinitialisation impossible : des tickets valides sont encore enregistrés.', 'loterie-manager' );
                 }
                 $reset_notice_class = 'notice notice-error';
+            } elseif ( 'forced' === $reset_status ) {
+                if ( $reset_target && '' !== $reset_target_title ) {
+                    /* translators: %s: loterie title. */
+                    $reset_notice = sprintf( __( 'Réinitialisation forcée effectuée pour « %s ». Vérifiez les commandes associées.', 'loterie-manager' ), $reset_target_title );
+                } elseif ( $reset_target ) {
+                    $reset_notice = __( 'Réinitialisation forcée effectuée sur la loterie sélectionnée.', 'loterie-manager' );
+                } else {
+                    $reset_notice = __( 'Réinitialisation forcée effectuée sur l’ensemble des loteries.', 'loterie-manager' );
+                }
+                $reset_notice_class = 'notice notice-warning';
             } elseif ( 'nonce' === $reset_status ) {
                 $reset_notice       = __( 'La vérification de sécurité a échoué. Merci de réessayer.', 'loterie-manager' );
                 $reset_notice_class = 'notice notice-error';
@@ -3792,14 +3802,22 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                                 </label>
                                 <button type="submit" class="button button-primary"><?php esc_html_e( 'Filtrer', 'loterie-manager' ); ?></button>
                             </form>
-                            <form class="lm-topbar__action" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php echo esc_js( __( 'Confirmer la réinitialisation des compteurs ?', 'loterie-manager' ) ); ?>');">
-                                <?php wp_nonce_field( 'lm_reset_lottery_counters', 'lm_reset_lottery_counters_nonce' ); ?>
-                                <input type="hidden" name="action" value="lm_reset_lottery_counters" />
-                                <button type="submit" class="button button-secondary"><?php esc_html_e( 'Réinitialiser les compteurs', 'loterie-manager' ); ?></button>
+                            <div class="lm-topbar__action">
+                                <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php echo esc_js( __( 'Confirmer la réinitialisation des compteurs ?', 'loterie-manager' ) ); ?>');">
+                                    <?php wp_nonce_field( 'lm_reset_lottery_counters', 'lm_reset_lottery_counters_nonce' ); ?>
+                                    <input type="hidden" name="action" value="lm_reset_lottery_counters" />
+                                    <button type="submit" class="button button-secondary" <?php disabled( $has_active_sales ); ?>><?php esc_html_e( 'Réinitialiser les compteurs', 'loterie-manager' ); ?></button>
+                                </form>
                                 <?php if ( $has_active_sales ) : ?>
-                                    <p class="description"><?php esc_html_e( 'Des tickets valides sont toujours présents ; l’opération sera bloquée.', 'loterie-manager' ); ?></p>
+                                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php echo esc_js( __( 'Confirmer la réinitialisation forcée ? Tous les tickets valides seront ignorés.', 'loterie-manager' ) ); ?>');" class="lm-topbar__action-force">
+                                        <?php wp_nonce_field( 'lm_reset_lottery_counters', 'lm_reset_lottery_counters_nonce' ); ?>
+                                        <input type="hidden" name="action" value="lm_reset_lottery_counters" />
+                                        <input type="hidden" name="lm_force_reset" value="1" />
+                                        <button type="submit" class="button button-secondary button-secondary--danger"><?php esc_html_e( 'Forcer la réinitialisation', 'loterie-manager' ); ?></button>
+                                        <p class="description"><?php esc_html_e( 'Utilisez cette option uniquement après avoir nettoyé les commandes concernées.', 'loterie-manager' ); ?></p>
+                                    </form>
                                 <?php endif; ?>
-                            </form>
+                            </div>
                             <div class="lm-topbar__avatar">
                                 <?php echo get_avatar( $current_user ? $current_user->ID : 0, 40 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
                             </div>
@@ -3962,14 +3980,19 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                                                     <a href="<?php echo esc_url( wp_nonce_url( admin_url( 'post.php?action=trash&post=' . $entry['id'] ), 'trash-post_' . $entry['id'] ) ); ?>"><?php esc_html_e( 'Archiver', 'loterie-manager' ); ?></a>
                                                 </div>
                                             </details>
+                                            <form class="lm-inline-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php echo esc_js( __( 'Confirmer la réinitialisation des compteurs ?', 'loterie-manager' ) ); ?>');">
+                                                <?php wp_nonce_field( 'lm_reset_lottery_counters', 'lm_reset_lottery_counters_nonce' ); ?>
+                                                <input type="hidden" name="action" value="lm_reset_lottery_counters" />
+                                                <input type="hidden" name="loterie_id" value="<?php echo esc_attr( $entry['id'] ); ?>" />
+                                                <button type="submit" class="button button-secondary" <?php disabled( intval( $entry['valid_tickets'] ) > 0 ); ?>><?php esc_html_e( 'Réinitialiser les compteurs', 'loterie-manager' ); ?></button>
+                                            </form>
                                             <?php if ( intval( $entry['valid_tickets'] ) > 0 ) : ?>
-                                                <span class="lm-action-disabled" title="<?php esc_attr_e( 'Impossible de réinitialiser tant que des tickets valides existent.', 'loterie-manager' ); ?>"><?php esc_html_e( 'Réinitialisation indisponible', 'loterie-manager' ); ?></span>
-                                            <?php else : ?>
-                                                <form class="lm-inline-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php echo esc_js( __( 'Confirmer la réinitialisation des compteurs ?', 'loterie-manager' ) ); ?>');">
+                                                <form class="lm-inline-form lm-inline-form--force" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php echo esc_js( __( 'Confirmer la réinitialisation forcée ? Tous les tickets valides seront ignorés.', 'loterie-manager' ) ); ?>');">
                                                     <?php wp_nonce_field( 'lm_reset_lottery_counters', 'lm_reset_lottery_counters_nonce' ); ?>
                                                     <input type="hidden" name="action" value="lm_reset_lottery_counters" />
                                                     <input type="hidden" name="loterie_id" value="<?php echo esc_attr( $entry['id'] ); ?>" />
-                                                    <button type="submit" class="button button-secondary"><?php esc_html_e( 'Réinitialiser les compteurs', 'loterie-manager' ); ?></button>
+                                                    <input type="hidden" name="lm_force_reset" value="1" />
+                                                    <button type="submit" class="button button-secondary button-secondary--danger"><?php esc_html_e( 'Forcer la réinitialisation', 'loterie-manager' ); ?></button>
                                                 </form>
                                             <?php endif; ?>
                                         </div>
@@ -4205,6 +4228,16 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                     $reset_notice = __( 'Réinitialisation impossible : des tickets valides sont encore enregistrés.', 'loterie-manager' );
                 }
                 $reset_notice_class = 'notice notice-error';
+            } elseif ( 'forced' === $reset_status ) {
+                if ( $reset_target && '' !== $reset_target_title ) {
+                    /* translators: %s: loterie title. */
+                    $reset_notice = sprintf( __( 'Réinitialisation forcée effectuée pour « %s ». Vérifiez les commandes associées.', 'loterie-manager' ), $reset_target_title );
+                } elseif ( $reset_target ) {
+                    $reset_notice = __( 'Réinitialisation forcée effectuée sur la loterie sélectionnée.', 'loterie-manager' );
+                } else {
+                    $reset_notice = __( 'Réinitialisation forcée effectuée.', 'loterie-manager' );
+                }
+                $reset_notice_class = 'notice notice-warning';
             } elseif ( 'nonce' === $reset_status ) {
                 $reset_notice       = __( 'La vérification de sécurité a échoué. Merci de réessayer.', 'loterie-manager' );
                 $reset_notice_class = 'notice notice-error';
@@ -4280,14 +4313,20 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                                     <button type="submit" class="button button-secondary"><?php esc_html_e( 'Mettre à jour', 'loterie-manager' ); ?></button>
                                 </form>
                                 <div class="lm-hero__reset">
+                                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php echo esc_js( __( 'Confirmer la réinitialisation des compteurs ?', 'loterie-manager' ) ); ?>');">
+                                        <?php wp_nonce_field( 'lm_reset_lottery_counters', 'lm_reset_lottery_counters_nonce' ); ?>
+                                        <input type="hidden" name="action" value="lm_reset_lottery_counters" />
+                                        <input type="hidden" name="loterie_id" value="<?php echo esc_attr( $loterie_id ); ?>" />
+                                        <button type="submit" class="button button-secondary" <?php disabled( intval( $stats['valid_tickets'] ) > 0 ); ?>><?php esc_html_e( 'Réinitialiser les compteurs', 'loterie-manager' ); ?></button>
+                                    </form>
                                     <?php if ( intval( $stats['valid_tickets'] ) > 0 ) : ?>
-                                        <span class="lm-action-disabled" title="<?php esc_attr_e( 'Impossible de réinitialiser tant que des tickets valides existent.', 'loterie-manager' ); ?>"><?php esc_html_e( 'Réinitialisation indisponible', 'loterie-manager' ); ?></span>
-                                    <?php else : ?>
-                                        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php echo esc_js( __( 'Confirmer la réinitialisation des compteurs ?', 'loterie-manager' ) ); ?>');">
+                                        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php echo esc_js( __( 'Confirmer la réinitialisation forcée ? Tous les tickets valides seront ignorés.', 'loterie-manager' ) ); ?>');" class="lm-hero__reset-force">
                                             <?php wp_nonce_field( 'lm_reset_lottery_counters', 'lm_reset_lottery_counters_nonce' ); ?>
                                             <input type="hidden" name="action" value="lm_reset_lottery_counters" />
                                             <input type="hidden" name="loterie_id" value="<?php echo esc_attr( $loterie_id ); ?>" />
-                                            <button type="submit" class="button button-secondary"><?php esc_html_e( 'Réinitialiser les compteurs', 'loterie-manager' ); ?></button>
+                                            <input type="hidden" name="lm_force_reset" value="1" />
+                                            <button type="submit" class="button button-secondary button-secondary--danger"><?php esc_html_e( 'Réinitialiser malgré les tickets valides', 'loterie-manager' ); ?></button>
+                                            <p class="lm-hero__reset-note"><?php esc_html_e( 'Utilisez cette option après avoir supprimé les commandes de test pour purger les compteurs restants.', 'loterie-manager' ); ?></p>
                                         </form>
                                     <?php endif; ?>
                                 </div>
@@ -5116,8 +5155,9 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 exit;
             }
 
-            $loterie_id = isset( $_POST['loterie_id'] ) ? absint( $_POST['loterie_id'] ) : 0;
-            $targets    = array();
+            $loterie_id  = isset( $_POST['loterie_id'] ) ? absint( $_POST['loterie_id'] ) : 0;
+            $force_reset = isset( $_POST['lm_force_reset'] ) && '1' === sanitize_text_field( wp_unslash( $_POST['lm_force_reset'] ) );
+            $targets     = array();
 
             if ( $loterie_id > 0 ) {
                 $post = get_post( $loterie_id );
@@ -5147,30 +5187,32 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             }
 
             $blocked_id = 0;
-            foreach ( $targets as $target_id ) {
-                $stats = $this->get_lottery_stats(
-                    $target_id,
-                    array(
-                        'force_refresh' => true,
-                    )
-                );
+            if ( ! $force_reset ) {
+                foreach ( $targets as $target_id ) {
+                    $stats = $this->get_lottery_stats(
+                        $target_id,
+                        array(
+                            'force_refresh' => true,
+                        )
+                    );
 
-                if ( isset( $stats['valid_tickets'] ) && $stats['valid_tickets'] > 0 ) {
-                    $blocked_id = $target_id;
-                    break;
+                    if ( isset( $stats['valid_tickets'] ) && $stats['valid_tickets'] > 0 ) {
+                        $blocked_id = $target_id;
+                        break;
+                    }
                 }
-            }
 
-            if ( $blocked_id > 0 ) {
-                $redirect_url = add_query_arg(
-                    array(
-                        'lm_reset_status' => 'active',
-                        'lm_reset_target' => $blocked_id,
-                    ),
-                    $redirect
-                );
-                wp_safe_redirect( $redirect_url );
-                exit;
+                if ( $blocked_id > 0 ) {
+                    $redirect_url = add_query_arg(
+                        array(
+                            'lm_reset_status' => 'active',
+                            'lm_reset_target' => $blocked_id,
+                        ),
+                        $redirect
+                    );
+                    wp_safe_redirect( $redirect_url );
+                    exit;
+                }
             }
 
             foreach ( $targets as $target_id ) {
@@ -5178,14 +5220,16 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 unset( $this->lottery_stats_cache[ $target_id ] );
                 $this->add_lottery_log(
                     $target_id,
-                    'manual_reset',
-                    __( 'Les compteurs ont été réinitialisés manuellement.', 'loterie-manager' )
+                    $force_reset ? 'manual_reset_force' : 'manual_reset',
+                    $force_reset
+                        ? __( 'Les compteurs ont été réinitialisés manuellement (forcé).', 'loterie-manager' )
+                        : __( 'Les compteurs ont été réinitialisés manuellement.', 'loterie-manager' )
                 );
             }
 
             $this->most_advanced_loterie_id = null;
 
-            $redirect_args = array( 'lm_reset_status' => 'success' );
+            $redirect_args = array( 'lm_reset_status' => $force_reset ? 'forced' : 'success' );
             if ( 1 === count( $targets ) ) {
                 $redirect_args['lm_reset_target'] = $targets[0];
             }
