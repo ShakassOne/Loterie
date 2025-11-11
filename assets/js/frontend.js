@@ -40,6 +40,182 @@
         window.alert(message);
     }
 
+    function formatTicketBadge(limit) {
+        if (limit <= 0) {
+            return '';
+        }
+
+        if (window.LoterieManager && LoterieManager.i18n) {
+            if (limit === 1 && LoterieManager.i18n.ticket_badge_single) {
+                return LoterieManager.i18n.ticket_badge_single;
+            }
+
+            if (LoterieManager.i18n.ticket_badge_plural) {
+                return LoterieManager.i18n.ticket_badge_plural.replace('%d', limit);
+            }
+        }
+
+        return limit === 1 ? '1 ticket' : limit + ' tickets';
+    }
+
+    function ensureTicketBadgeTarget($form) {
+        var $product = $form.closest('.product');
+        if (!$product.length) {
+            return { badge: $(), target: $() };
+        }
+
+        var $gallery = $product.find('.woocommerce-product-gallery').first();
+        if (!$gallery.length) {
+            $gallery = $product;
+        }
+
+        var $badge = $gallery.find('.lm-product-ticket-badge').first();
+        if (!$badge.length) {
+            $badge = $('<div>', { 'class': 'lm-product-ticket-badge', 'aria-live': 'polite' }).hide();
+            $gallery.append($badge);
+        }
+
+        return { badge: $badge, target: $gallery };
+    }
+
+    function updateTicketBadge($form, limit) {
+        var target = ensureTicketBadgeTarget($form);
+        if (!target.badge.length) {
+            return;
+        }
+
+        if (limit > 0) {
+            target.badge.text(formatTicketBadge(limit)).css('display', 'inline-flex');
+            target.target.addClass('lm-has-ticket-badge');
+        } else {
+            target.badge.text('').css('display', 'none');
+            target.target.removeClass('lm-has-ticket-badge');
+        }
+    }
+
+    function setTicketLimit($form, options) {
+        options = options || {};
+
+        var $container = $form.find('.lm-lottery-data');
+        if (!$container.length) {
+            return;
+        }
+
+        var defaultRaw = $container.attr('data-default-ticket-limit');
+        if (typeof defaultRaw === 'undefined') {
+            defaultRaw = $container.attr('data-ticket-limit') || '';
+            $container.attr('data-default-ticket-limit', defaultRaw);
+        }
+
+        var hasCustom = !!options.hasCustom;
+        var customRaw = typeof options.limit !== 'undefined' ? options.limit : null;
+        var customValue = parseTicketLimit(customRaw);
+        var useCustom = hasCustom && customRaw !== '' && customRaw !== null && customRaw !== undefined && customValue > 0;
+
+        if (useCustom) {
+            $container.attr('data-ticket-limit', customValue);
+            $form.attr('data-ticket-limit', customValue);
+            updateTicketBadge($form, customValue);
+            return;
+        }
+
+        var fallbackValue = parseTicketLimit(defaultRaw);
+        if (defaultRaw !== '' && fallbackValue > 0) {
+            $container.attr('data-ticket-limit', fallbackValue);
+            $form.attr('data-ticket-limit', fallbackValue);
+            updateTicketBadge($form, fallbackValue);
+            return;
+        }
+
+        $container.attr('data-ticket-limit', '');
+        $form.removeAttr('data-ticket-limit');
+
+        var badgeValue = hasCustom ? customValue : fallbackValue;
+        updateTicketBadge($form, badgeValue);
+    }
+
+    function getVariationTicketMap($form) {
+        var $container = $form.find('.lm-lottery-data');
+        if (!$container.length) {
+            return {};
+        }
+
+        var cached = $container.data('lmTicketMap');
+        if (cached) {
+            return cached;
+        }
+
+        var raw = $container.attr('data-variation-ticket-map');
+        var map = {};
+
+        if (raw) {
+            try {
+                var parsed = JSON.parse(raw);
+                if (parsed && typeof parsed === 'object') {
+                    map = parsed;
+                }
+            } catch (error) {
+                map = {};
+            }
+        }
+
+        $container.data('lmTicketMap', map);
+
+        return map;
+    }
+
+    function resolveVariationTicketLimit($form, variation) {
+        if (!variation) {
+            return { hasCustom: false, limit: null };
+        }
+
+        var hasCustom = false;
+        var limitValue = null;
+
+        if (typeof variation.lm_ticket_allocation_defined !== 'undefined') {
+            hasCustom = !!variation.lm_ticket_allocation_defined;
+        }
+
+        if (typeof variation.lm_ticket_allocation !== 'undefined' && variation.lm_ticket_allocation !== null && variation.lm_ticket_allocation !== '') {
+            limitValue = variation.lm_ticket_allocation;
+        }
+
+        if (hasCustom && (limitValue === null || limitValue === '' || typeof limitValue === 'undefined')) {
+            hasCustom = false;
+        }
+
+        if (!hasCustom) {
+            var parsedLimit = parseTicketLimit(limitValue);
+            if (limitValue !== null && limitValue !== '' && typeof limitValue !== 'undefined' && parsedLimit > 0) {
+                hasCustom = true;
+                limitValue = parsedLimit;
+            } else {
+                var variationId = null;
+                if (typeof variation.variation_id !== 'undefined' && variation.variation_id !== null && variation.variation_id !== '') {
+                    variationId = variation.variation_id;
+                } else if (typeof variation.variationId !== 'undefined') {
+                    variationId = variation.variationId;
+                } else if (typeof variation.variationID !== 'undefined') {
+                    variationId = variation.variationID;
+                }
+
+                if (variationId !== null && typeof variationId !== 'undefined') {
+                    var map = getVariationTicketMap($form);
+                    var key = String(variationId);
+                    if (Object.prototype.hasOwnProperty.call(map, key)) {
+                        hasCustom = true;
+                        limitValue = map[key];
+                    } else if (Object.prototype.hasOwnProperty.call(map, variationId)) {
+                        hasCustom = true;
+                        limitValue = map[variationId];
+                    }
+                }
+            }
+        }
+
+        return { hasCustom: hasCustom, limit: limitValue };
+    }
+
     function normalizeLotteries(raw) {
         if (!raw) {
             return [];
@@ -267,6 +443,29 @@
         }
     });
 
+    function initializeTicketBadges() {
+        $('form.cart').each(function () {
+            var $form = $(this);
+            if (!$form.find('.lm-lottery-data').length) {
+                return;
+            }
+
+            setTicketLimit($form, {});
+        });
+    }
+
+    $(document).on('found_variation', 'form.variations_form', function (event, variation) {
+        var resolution = resolveVariationTicketLimit($(this), variation);
+        setTicketLimit($(this), {
+            hasCustom: resolution.hasCustom,
+            limit: resolution.limit
+        });
+    });
+
+    $(document).on('reset_data', 'form.variations_form', function () {
+        setTicketLimit($(this), {});
+    });
+
     function initTiltCards() {
         var hoverMedia = window.matchMedia ? window.matchMedia('(hover: hover)') : null;
         if (hoverMedia && !hoverMedia.matches) {
@@ -333,9 +532,14 @@
         });
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initTiltCards);
-    } else {
+    function initFrontendFeatures() {
+        initializeTicketBadges();
         initTiltCards();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initFrontendFeatures);
+    } else {
+        initFrontendFeatures();
     }
 })(jQuery);
