@@ -3,7 +3,7 @@
 Plugin Name: WinShirt Loterie Manager
 Plugin URI: https://github.com/ShakassOne/loterie-winshirt
 Description: Gestion des loteries pour WooCommerce.
-Version: 1.3.13
+Version: 1.3.14
 Author: Shakass Communication
 Author URI: https://shakass.com
 Text Domain: loterie-winshirt
@@ -19,7 +19,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
 
     final class Loterie_Manager {
 
-        const VERSION = '1.3.13';
+        const VERSION = '1.3.14';
 
         /**
          * Meta key storing total ticket capacity for a loterie (post).
@@ -80,6 +80,11 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
          * Meta key storing loterie targets for a product.
          */
         const META_PRODUCT_TARGET_LOTERIES = '_lm_product_target_lotteries';
+
+        /**
+         * Meta key storing ticket allocation per variation.
+         */
+        const META_VARIATION_TICKET_ALLOCATION = '_lm_variation_ticket_allocation';
 
         /**
          * Option key storing global lottery settings.
@@ -147,6 +152,8 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 add_action( 'admin_post_lm_manual_draw', array( $this, 'handle_manual_draw' ) );
                 add_action( 'admin_post_lm_download_draw_report', array( $this, 'handle_download_draw_report' ) );
                 add_action( 'admin_post_lm_reset_lottery_counters', array( $this, 'handle_reset_lottery_counters' ) );
+                add_action( 'woocommerce_product_after_variable_attributes', array( $this, 'render_variation_ticket_field' ), 10, 3 );
+                add_action( 'woocommerce_save_product_variation', array( $this, 'save_variation_ticket_field' ), 10, 2 );
             }
 
             // Product fields.
@@ -158,6 +165,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
 
             // Product add to cart data handling.
             add_filter( 'woocommerce_add_cart_item_data', array( $this, 'append_cart_item_data' ), 10, 3 );
+            add_filter( 'woocommerce_available_variation', array( $this, 'inject_variation_ticket_allocation' ), 10, 3 );
             add_filter( 'woocommerce_get_cart_item_from_session', array( $this, 'restore_cart_item_data' ), 10, 3 );
             add_filter( 'woocommerce_get_item_data', array( $this, 'display_cart_item_data' ), 10, 2 );
             add_action( 'woocommerce_checkout_create_order_line_item', array( $this, 'store_order_item_data' ), 10, 4 );
@@ -230,6 +238,8 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                         'ticket_limit_reached_single' => __( 'Vous ne pouvez sélectionner qu\'une loterie pour ce produit.', 'loterie-manager' ),
                         'ticket_limit_reached_plural' => __( 'Vous ne pouvez sélectionner que %s loteries pour ce produit.', 'loterie-manager' ),
                         'default_lottery_label'       => __( 'Loterie #%d', 'loterie-manager' ),
+                        'ticket_badge_single'         => __( '1 ticket', 'loterie-manager' ),
+                        'ticket_badge_plural'         => __( '%d tickets', 'loterie-manager' ),
                     ),
                 )
             );
@@ -392,6 +402,101 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
         }
 
         /**
+         * Renders the ticket allocation field for each variation.
+         *
+         * @param int                $loop           Loop index.
+         * @param array<string,mixed> $variation_data Variation data.
+         * @param WP_Post            $variation      Variation object.
+         */
+        public function render_variation_ticket_field( $loop, $variation_data, $variation ) {
+            if ( ! function_exists( 'woocommerce_wp_text_input' ) ) {
+                return;
+            }
+
+            $variation_id = isset( $variation->ID ) ? intval( $variation->ID ) : 0;
+            if ( $variation_id <= 0 ) {
+                return;
+            }
+
+            $value = get_post_meta( $variation_id, self::META_VARIATION_TICKET_ALLOCATION, true );
+
+            woocommerce_wp_text_input(
+                array(
+                    'id'            => 'lm_ticket_allocation_variation_' . $variation_id,
+                    'name'          => 'lm_ticket_allocation_variation[' . $variation_id . ']',
+                    'value'         => '' === $value ? '' : max( 0, intval( $value ) ),
+                    'label'         => __( 'Nombre de tickets', 'loterie-manager' ),
+                    'desc_tip'      => true,
+                    'description'   => __( 'Laissez vide pour utiliser la valeur définie au niveau du produit.', 'loterie-manager' ),
+                    'type'          => 'number',
+                    'custom_attributes' => array(
+                        'min'  => '0',
+                        'step' => '1',
+                    ),
+                    'wrapper_class' => 'form-row form-row-full lm-variation-ticket-allocation',
+                )
+            );
+        }
+
+        /**
+         * Saves the ticket allocation field for a variation.
+         *
+         * @param int $variation_id Variation ID.
+         * @param int $index        Loop index.
+         */
+        public function save_variation_ticket_field( $variation_id, $index ) {
+            if ( $variation_id <= 0 ) {
+                return;
+            }
+
+            $field_name = 'lm_ticket_allocation_variation';
+
+            if ( isset( $_POST[ $field_name ][ $variation_id ] ) ) {
+                $raw_value = wp_unslash( $_POST[ $field_name ][ $variation_id ] );
+
+                if ( '' === $raw_value ) {
+                    delete_post_meta( $variation_id, self::META_VARIATION_TICKET_ALLOCATION );
+                    return;
+                }
+
+                $value = max( 0, intval( $raw_value ) );
+                update_post_meta( $variation_id, self::META_VARIATION_TICKET_ALLOCATION, $value );
+                return;
+            }
+
+            delete_post_meta( $variation_id, self::META_VARIATION_TICKET_ALLOCATION );
+        }
+
+        /**
+         * Injects variation ticket allocation into variation data for scripts.
+         *
+         * @param array<string,mixed> $variation_data Variation data array.
+         * @param WC_Product          $product        Parent product.
+         * @param WC_Product_Variation $variation     Variation instance.
+         *
+         * @return array<string,mixed>
+         */
+        public function inject_variation_ticket_allocation( $variation_data, $product, $variation ) {
+            if ( ! $variation instanceof WC_Product_Variation ) {
+                return $variation_data;
+            }
+
+            $variation_id = $variation->get_id();
+            if ( $variation_id <= 0 ) {
+                return $variation_data;
+            }
+
+            $raw_value = get_post_meta( $variation_id, self::META_VARIATION_TICKET_ALLOCATION, true );
+            $has_custom = '' !== $raw_value;
+            $value      = $has_custom ? max( 0, intval( $raw_value ) ) : '';
+
+            $variation_data['lm_ticket_allocation']         = $value;
+            $variation_data['lm_ticket_allocation_defined'] = $has_custom;
+
+            return $variation_data;
+        }
+
+        /**
          * Adds a hidden field to store selected loteries.
          */
         public function render_hidden_lottery_field() {
@@ -477,6 +582,31 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
         }
 
         /**
+         * Retrieves the ticket allocation limit for a product/variation pair.
+         *
+         * @param int $product_id   Product ID.
+         * @param int $variation_id Variation ID.
+         *
+         * @return int
+         */
+        private function get_ticket_allocation_limit( $product_id, $variation_id = 0 ) {
+            $variation_id = intval( $variation_id );
+            if ( $variation_id > 0 ) {
+                $raw_variation_value = get_post_meta( $variation_id, self::META_VARIATION_TICKET_ALLOCATION, true );
+                if ( '' !== $raw_variation_value ) {
+                    return max( 0, intval( $raw_variation_value ) );
+                }
+            }
+
+            $raw_product_value = get_post_meta( $product_id, self::META_PRODUCT_TICKET_ALLOCATION, true );
+            if ( '' === $raw_product_value ) {
+                return 0;
+            }
+
+            return max( 0, intval( $raw_product_value ) );
+        }
+
+        /**
          * Validates loterie selection when adding a product to cart.
          *
          * @param bool $passed     Validation flag.
@@ -509,7 +639,9 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 }
             }
 
-            $ticket_limit = intval( get_post_meta( $product_id, self::META_PRODUCT_TICKET_ALLOCATION, true ) );
+            $variation_id = isset( $_REQUEST['variation_id'] ) ? intval( wp_unslash( $_REQUEST['variation_id'] ) ) : 0;
+
+            $ticket_limit = $this->get_ticket_allocation_limit( $product_id, $variation_id );
 
             if ( $ticket_limit > 0 && count( $selection ) > $ticket_limit ) {
                 if ( function_exists( 'wc_add_notice' ) ) {
@@ -571,7 +703,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             }
 
             printf(
-                '<div class="lm-lottery-data" data-ticket-limit="%s" data-lotteries="%s"></div>',
+                '<div class="lm-lottery-data" data-ticket-limit="%1$s" data-default-ticket-limit="%1$s" data-lotteries="%2$s"></div>',
                 esc_attr( $ticket_limit_attr ),
                 esc_attr( wp_json_encode( $data ) )
             );
@@ -595,7 +727,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 $cart_item_data['lm_lottery_selection'] = array_values( $selection );
             }
 
-            $ticket_allocation = intval( get_post_meta( $product_id, self::META_PRODUCT_TICKET_ALLOCATION, true ) );
+            $ticket_allocation = $this->get_ticket_allocation_limit( $product_id, $variation_id );
             if ( $ticket_allocation > 0 ) {
                 $cart_item_data['lm_ticket_allocation'] = $ticket_allocation;
             }
