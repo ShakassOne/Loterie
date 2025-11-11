@@ -3602,6 +3602,14 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 );
             }
 
+            $has_active_sales = false;
+            foreach ( $lotteries as $entry ) {
+                if ( ! empty( $entry['valid_tickets'] ) ) {
+                    $has_active_sales = true;
+                    break;
+                }
+            }
+
             $filtered_lotteries = array_filter(
                 $lotteries,
                 static function ( $entry ) use ( $search_global, $status_filter, $period_filter, $now ) {
@@ -3783,6 +3791,14 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                                     </select>
                                 </label>
                                 <button type="submit" class="button button-primary"><?php esc_html_e( 'Filtrer', 'loterie-manager' ); ?></button>
+                            </form>
+                            <form class="lm-topbar__action" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php echo esc_js( __( 'Confirmer la réinitialisation des compteurs ?', 'loterie-manager' ) ); ?>');">
+                                <?php wp_nonce_field( 'lm_reset_lottery_counters', 'lm_reset_lottery_counters_nonce' ); ?>
+                                <input type="hidden" name="action" value="lm_reset_lottery_counters" />
+                                <button type="submit" class="button button-secondary"><?php esc_html_e( 'Réinitialiser les compteurs', 'loterie-manager' ); ?></button>
+                                <?php if ( $has_active_sales ) : ?>
+                                    <p class="description"><?php esc_html_e( 'Des tickets valides sont toujours présents ; l’opération sera bloquée.', 'loterie-manager' ); ?></p>
+                                <?php endif; ?>
                             </form>
                             <div class="lm-topbar__avatar">
                                 <?php echo get_avatar( $current_user ? $current_user->ID : 0, 40 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
