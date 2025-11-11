@@ -124,6 +124,40 @@
     --lm-accent: #22d3ee;
 }
 
+.woocommerce div.product .woocommerce-product-gallery.lm-has-ticket-badge,
+.woocommerce div.product.lm-has-ticket-badge {
+    position: relative;
+}
+
+.woocommerce div.product .lm-product-ticket-badge {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    padding: 0.5rem 1rem;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--winshirt-purple, #7c3aed), var(--winshirt-blue, #2563eb));
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 0.95rem;
+    line-height: 1.2;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.25);
+    pointer-events: none;
+    z-index: 9;
+    display: none;
+    align-items: center;
+    gap: 0.35rem;
+    letter-spacing: 0.02em;
+}
+
+@media (max-width: 767px) {
+    .woocommerce div.product .lm-product-ticket-badge {
+        top: 0.75rem;
+        left: 0.75rem;
+        font-size: 0.85rem;
+        padding: 0.4rem 0.85rem;
+    }
+}
+
 .tilt-card {
     position: relative;
     display: block;
