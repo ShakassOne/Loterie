@@ -3,7 +3,7 @@
 Plugin Name: WinShirt Loterie Manager
 Plugin URI: https://github.com/ShakassOne/loterie-winshirt
 Description: Gestion des loteries pour WooCommerce.
-Version: 1.3.12
+Version: 1.3.13
 Author: Shakass Communication
 Author URI: https://shakass.com
 Text Domain: loterie-winshirt
@@ -19,7 +19,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
 
     final class Loterie_Manager {
 
-        const VERSION = '1.3.12';
+        const VERSION = '1.3.13';
 
         /**
          * Meta key storing total ticket capacity for a loterie (post).
@@ -35,6 +35,11 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
          * Meta key storing loterie end date.
          */
         const META_END_DATE = '_lm_end_date';
+
+        /**
+         * Meta key storing loterie start date.
+         */
+        const META_START_DATE = '_lm_start_date';
 
         /**
          * Meta key storing manual status override for a loterie.
@@ -555,6 +560,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                     'title'     => get_the_title( $post ),
                     'capacity'  => intval( get_post_meta( $post->ID, self::META_TICKET_CAPACITY, true ) ),
                     'sold'      => intval( get_post_meta( $post->ID, self::META_TICKETS_SOLD, true ) ),
+                    'start_date'=> get_post_meta( $post->ID, self::META_START_DATE, true ),
                     'end_date'  => get_post_meta( $post->ID, self::META_END_DATE, true ),
                     'prize'     => get_post_meta( $post->ID, self::META_LOT_DESCRIPTION, true ),
                 );
@@ -1084,9 +1090,10 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
         public function render_loterie_meta_box( $post ) {
             wp_nonce_field( 'lm_save_loterie_meta', 'lm_loterie_nonce' );
 
-            $capacity = intval( get_post_meta( $post->ID, self::META_TICKET_CAPACITY, true ) );
-            $lot      = get_post_meta( $post->ID, self::META_LOT_DESCRIPTION, true );
-            $end_date = get_post_meta( $post->ID, self::META_END_DATE, true );
+            $capacity   = intval( get_post_meta( $post->ID, self::META_TICKET_CAPACITY, true ) );
+            $lot        = get_post_meta( $post->ID, self::META_LOT_DESCRIPTION, true );
+            $start_date = get_post_meta( $post->ID, self::META_START_DATE, true );
+            $end_date   = get_post_meta( $post->ID, self::META_END_DATE, true );
             $status          = get_post_meta( $post->ID, self::META_STATUS_OVERRIDE, true );
             $status_options  = $this->get_loterie_status_options();
 
@@ -1107,6 +1114,10 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             <p>
                 <label for="lm_lot_description"><strong><?php esc_html_e( 'Description du lot', 'loterie-manager' ); ?></strong></label><br />
                 <textarea id="lm_lot_description" name="lm_lot_description" rows="3" style="width:100%;"><?php echo esc_textarea( $lot ); ?></textarea>
+            </p>
+            <p>
+                <label for="lm_start_date"><strong><?php esc_html_e( 'Date de début', 'loterie-manager' ); ?></strong></label><br />
+                <input type="date" id="lm_start_date" name="lm_start_date" value="<?php echo esc_attr( $start_date ); ?>" />
             </p>
             <p>
                 <label for="lm_end_date"><strong><?php esc_html_e( 'Date de fin', 'loterie-manager' ); ?></strong></label><br />
@@ -1147,6 +1158,9 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
 
             $lot = isset( $_POST['lm_lot_description'] ) ? wp_kses_post( wp_unslash( $_POST['lm_lot_description'] ) ) : '';
             update_post_meta( $post_id, self::META_LOT_DESCRIPTION, $lot );
+
+            $start_date = isset( $_POST['lm_start_date'] ) ? sanitize_text_field( wp_unslash( $_POST['lm_start_date'] ) ) : '';
+            update_post_meta( $post_id, self::META_START_DATE, $start_date );
 
             $end_date = isset( $_POST['lm_end_date'] ) ? sanitize_text_field( wp_unslash( $_POST['lm_end_date'] ) ) : '';
             update_post_meta( $post_id, self::META_END_DATE, $end_date );
@@ -1214,18 +1228,30 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             $capacity     = isset( $stats['capacity'] ) ? intval( $stats['capacity'] ) : intval( get_post_meta( $post_id, self::META_TICKET_CAPACITY, true ) );
             $sold         = isset( $stats['valid_tickets'] ) ? intval( $stats['valid_tickets'] ) : max( 0, intval( get_post_meta( $post_id, self::META_TICKETS_SOLD, true ) ) );
             $lot          = get_post_meta( $post_id, self::META_LOT_DESCRIPTION, true );
+            $start_date   = get_post_meta( $post_id, self::META_START_DATE, true );
             $end_date     = get_post_meta( $post_id, self::META_END_DATE, true );
             $is_featured  = (bool) get_post_meta( $post_id, '_lm_is_featured', true );
+            $start_time   = $start_date ? strtotime( $start_date ) : get_post_time( 'U', false, $post_id );
             $end_time     = $end_date ? strtotime( $end_date ) : false;
             $now          = current_time( 'timestamp' );
-            $start_time   = get_post_time( 'U', false, $post_id );
-            $is_active    = isset( $stats['status_code'] ) ? in_array( $stats['status_code'], array( 'active', 'complete' ), true ) : ( $end_time ? $end_time >= $now : true );
+            if ( isset( $stats['status_code'] ) ) {
+                $is_active = in_array( $stats['status_code'], array( 'active', 'complete' ), true );
+            } else {
+                $is_active = ! $start_time || $now >= $start_time;
+                if ( $is_active && $end_time ) {
+                    $is_active = $end_time >= $now;
+                }
+            }
             $progress     = isset( $stats['progress'] ) ? floatval( $stats['progress'] ) : ( $capacity > 0 ? min( 100, round( ( $sold / max( $capacity, 1 ) ) * 100, 2 ) ) : 0 );
 
             $elapsed_days_count = null;
             if ( $start_time ) {
-                $elapsed_days = floor( max( 0, $now - $start_time ) / DAY_IN_SECONDS );
-                $elapsed_days_count = $elapsed_days + 1;
+                if ( $now < $start_time ) {
+                    $elapsed_days_count = 0;
+                } else {
+                    $elapsed_days = floor( max( 0, $now - $start_time ) / DAY_IN_SECONDS );
+                    $elapsed_days_count = $elapsed_days + 1;
+                }
             }
 
             if ( isset( $stats['status_label'] ) ) {
@@ -1325,6 +1351,8 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 'status_display_code'=> $status_display_code,
                 'status_manual_code' => $status_manual_code,
                 'is_featured'        => $is_featured,
+                'start_date'         => $start_date,
+                'end_date'           => $end_date,
                 'formatted_draw_date'=> $formatted_draw_date,
                 'permalink'          => get_permalink( $post_id ),
                 'thumbnail'          => get_the_post_thumbnail( $post_id, 'large', array( 'class' => 'lm-lottery-card__image', 'loading' => 'lazy' ) ),
@@ -2268,14 +2296,17 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 return '';
             }
 
-            $post_id            = $context['post_id'];
-            $capacity           = $context['capacity'];
-            $sold               = $context['sold'];
-            $countdown_boxes    = $context['countdown_boxes'];
-            $elapsed_days_count = isset( $context['elapsed_days_count'] ) ? absint( $context['elapsed_days_count'] ) : 0;
+            $post_id         = $context['post_id'];
+            $capacity        = $context['capacity'];
+            $sold            = $context['sold'];
+            $countdown_boxes = $context['countdown_boxes'];
+
+            $has_elapsed_days   = array_key_exists( 'elapsed_days_count', $context );
+            $raw_elapsed        = $has_elapsed_days ? $context['elapsed_days_count'] : null;
+            $elapsed_days_count = null === $raw_elapsed ? null : absint( $raw_elapsed );
 
             $day_text = '';
-            if ( $elapsed_days_count > 0 ) {
+            if ( null !== $elapsed_days_count ) {
                 $day_text = sprintf( __( 'Jour %s', 'loterie-manager' ), number_format_i18n( $elapsed_days_count ) );
             }
 
@@ -2298,11 +2329,11 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             ob_start();
             ?>
             <section class="lm-loterie-banner" data-loterie-id="<?php echo esc_attr( $post_id ); ?>">
-                <?php if ( $day_text ) : ?>
+                <?php if ( '' !== $day_text ) : ?>
                     <span class="lm-loterie-banner__day"><?php echo esc_html( $day_text ); ?></span>
                 <?php endif; ?>
 
-                <?php if ( $day_text && ( $remaining_number || $remaining_text ) ) : ?>
+                <?php if ( '' !== $day_text && ( $remaining_number || $remaining_text ) ) : ?>
                     <span class="lm-loterie-banner__separator" aria-hidden="true">:</span>
                 <?php endif; ?>
 
@@ -3213,10 +3244,15 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             $participants_map = $collection['participants'];
 
             $capacity   = intval( get_post_meta( $post_id, self::META_TICKET_CAPACITY, true ) );
+            $start_date = get_post_meta( $post_id, self::META_START_DATE, true );
             $end_date   = get_post_meta( $post_id, self::META_END_DATE, true );
+            $start_time = $start_date ? strtotime( $start_date ) : 0;
             $end_time   = $end_date ? strtotime( $end_date ) : 0;
             $now        = current_time( 'timestamp' );
             $post       = get_post( $post_id );
+            if ( ! $start_time && $post ) {
+                $start_time = strtotime( $post->post_date );
+            }
             $status_raw = $post ? $post->post_status : 'draft';
 
             $valid_count     = 0;
@@ -3252,6 +3288,11 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 $status_label        = __( 'Brouillon', 'loterie-manager' );
                 $status_class        = 'is-draft';
                 $status_display_code = 'draft';
+            } elseif ( $start_time && $start_time > $now ) {
+                $status_code         = 'upcoming';
+                $status_label        = __( 'À venir', 'loterie-manager' );
+                $status_class        = 'is-upcoming';
+                $status_display_code = 'upcoming';
             } elseif ( $end_time && $end_time < $now ) {
                 $status_code         = 'closed';
                 $status_label        = __( 'Terminée', 'loterie-manager' );
@@ -3313,6 +3354,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 'status_manual_code'  => '' !== $manual_status && isset( $status_options[ $manual_status ] ) ? $manual_status : '',
                 'status_label'        => $status_label,
                 'status_class'        => $status_class,
+                'start_date'          => $start_date,
                 'end_date'            => $end_date,
                 'alerts'              => $alerts,
                 'ready_for_draw'      => $ready_for_draw,
@@ -3574,7 +3616,8 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                     )
                 );
 
-                $start_time = $post->post_date ? strtotime( $post->post_date ) : 0;
+                $start_date = ! empty( $stats['start_date'] ) ? $stats['start_date'] : '';
+                $start_time = $start_date ? strtotime( $start_date ) : ( $post->post_date ? strtotime( $post->post_date ) : 0 );
                 $end_time   = ! empty( $stats['end_date'] ) ? strtotime( $stats['end_date'] ) : 0;
                 $period     = $start_time ? date_i18n( get_option( 'date_format' ), $start_time ) : __( 'Non défini', 'loterie-manager' );
                 if ( $end_time ) {
@@ -3588,6 +3631,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                     'status_label'    => $stats['status_label'],
                     'status_class'    => $stats['status_class'],
                     'period'          => $period,
+                    'start_date'      => $start_date,
                     'start_time'      => $start_time,
                     'end_time'        => $end_time,
                     'progress'        => $stats['progress'],
@@ -4153,7 +4197,11 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             }
 
             $thumbnail_url = get_the_post_thumbnail_url( $post, 'large' );
-            $period_label  = $stats['end_date'] ? date_i18n( get_option( 'date_format' ), strtotime( $post->post_date ) ) . ' → ' . date_i18n( get_option( 'date_format' ), strtotime( $stats['end_date'] ) ) : date_i18n( get_option( 'date_format' ), strtotime( $post->post_date ) );
+            $detail_start  = ! empty( $stats['start_date'] ) ? strtotime( $stats['start_date'] ) : strtotime( $post->post_date );
+            $period_label  = $detail_start ? date_i18n( get_option( 'date_format' ), $detail_start ) : __( 'Non défini', 'loterie-manager' );
+            if ( ! empty( $stats['end_date'] ) ) {
+                $period_label .= ' → ' . date_i18n( get_option( 'date_format' ), strtotime( $stats['end_date'] ) );
+            }
             $status_class  = $stats['status_class'];
             $status_label  = $stats['status_label'];
             $progress      = $stats['progress'];
