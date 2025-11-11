@@ -3,7 +3,7 @@
 Plugin Name: WinShirt Loterie Manager
 Plugin URI: https://github.com/ShakassOne/loterie-winshirt
 Description: Gestion des loteries pour WooCommerce.
-Version: 1.3.14
+Version: 1.3.15
 Author: Shakass Communication
 Author URI: https://shakass.com
 Text Domain: loterie-winshirt
@@ -19,7 +19,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
 
     final class Loterie_Manager {
 
-        const VERSION = '1.3.14';
+        const VERSION = '1.3.15';
 
         /**
          * Meta key storing total ticket capacity for a loterie (post).
@@ -681,6 +681,22 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             $data              = array();
             $ticket_limit_raw  = get_post_meta( $product->get_id(), self::META_PRODUCT_TICKET_ALLOCATION, true );
             $ticket_limit_attr = '' === $ticket_limit_raw ? '' : intval( $ticket_limit_raw );
+            $variation_limits  = array();
+            if ( $product instanceof WC_Product && $product->is_type( 'variable' ) ) {
+                foreach ( $product->get_children() as $variation_id ) {
+                    $variation_id = intval( $variation_id );
+                    if ( $variation_id <= 0 ) {
+                        continue;
+                    }
+
+                    $raw_variation_limit = get_post_meta( $variation_id, self::META_VARIATION_TICKET_ALLOCATION, true );
+                    if ( '' === $raw_variation_limit ) {
+                        continue;
+                    }
+
+                    $variation_limits[ (string) $variation_id ] = max( 0, intval( $raw_variation_limit ) );
+                }
+            }
             foreach ( $loteries as $loterie_id ) {
                 $post = get_post( $loterie_id );
                 if ( ! $post ) {
@@ -702,11 +718,30 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 return;
             }
 
-            printf(
-                '<div class="lm-lottery-data" data-ticket-limit="%1$s" data-default-ticket-limit="%1$s" data-lotteries="%2$s"></div>',
-                esc_attr( $ticket_limit_attr ),
-                esc_attr( wp_json_encode( $data ) )
+            $lotteries_json = wp_json_encode( $data );
+            if ( false === $lotteries_json ) {
+                return;
+            }
+
+            $map_json = '{}';
+            if ( ! empty( $variation_limits ) ) {
+                $map_json = wp_json_encode( $variation_limits );
+            }
+
+            $attributes = array(
+                'class'                     => 'lm-lottery-data',
+                'data-ticket-limit'         => $ticket_limit_attr,
+                'data-default-ticket-limit' => $ticket_limit_attr,
+                'data-lotteries'            => $lotteries_json,
+                'data-variation-ticket-map' => $map_json,
             );
+
+            $attributes_markup = '';
+            foreach ( $attributes as $attribute => $value ) {
+                $attributes_markup .= sprintf( ' %s="%s"', esc_attr( $attribute ), esc_attr( $value ) );
+            }
+
+            echo '<div' . $attributes_markup . '></div>';
         }
 
         /**

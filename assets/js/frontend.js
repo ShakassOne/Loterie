@@ -134,6 +134,88 @@
         updateTicketBadge($form, badgeValue);
     }
 
+    function getVariationTicketMap($form) {
+        var $container = $form.find('.lm-lottery-data');
+        if (!$container.length) {
+            return {};
+        }
+
+        var cached = $container.data('lmTicketMap');
+        if (cached) {
+            return cached;
+        }
+
+        var raw = $container.attr('data-variation-ticket-map');
+        var map = {};
+
+        if (raw) {
+            try {
+                var parsed = JSON.parse(raw);
+                if (parsed && typeof parsed === 'object') {
+                    map = parsed;
+                }
+            } catch (error) {
+                map = {};
+            }
+        }
+
+        $container.data('lmTicketMap', map);
+
+        return map;
+    }
+
+    function resolveVariationTicketLimit($form, variation) {
+        if (!variation) {
+            return { hasCustom: false, limit: null };
+        }
+
+        var hasCustom = false;
+        var limitValue = null;
+
+        if (typeof variation.lm_ticket_allocation_defined !== 'undefined') {
+            hasCustom = !!variation.lm_ticket_allocation_defined;
+        }
+
+        if (typeof variation.lm_ticket_allocation !== 'undefined' && variation.lm_ticket_allocation !== null && variation.lm_ticket_allocation !== '') {
+            limitValue = variation.lm_ticket_allocation;
+        }
+
+        if (hasCustom && (limitValue === null || limitValue === '' || typeof limitValue === 'undefined')) {
+            hasCustom = false;
+        }
+
+        if (!hasCustom) {
+            var parsedLimit = parseTicketLimit(limitValue);
+            if (limitValue !== null && limitValue !== '' && typeof limitValue !== 'undefined' && parsedLimit > 0) {
+                hasCustom = true;
+                limitValue = parsedLimit;
+            } else {
+                var variationId = null;
+                if (typeof variation.variation_id !== 'undefined' && variation.variation_id !== null && variation.variation_id !== '') {
+                    variationId = variation.variation_id;
+                } else if (typeof variation.variationId !== 'undefined') {
+                    variationId = variation.variationId;
+                } else if (typeof variation.variationID !== 'undefined') {
+                    variationId = variation.variationID;
+                }
+
+                if (variationId !== null && typeof variationId !== 'undefined') {
+                    var map = getVariationTicketMap($form);
+                    var key = String(variationId);
+                    if (Object.prototype.hasOwnProperty.call(map, key)) {
+                        hasCustom = true;
+                        limitValue = map[key];
+                    } else if (Object.prototype.hasOwnProperty.call(map, variationId)) {
+                        hasCustom = true;
+                        limitValue = map[variationId];
+                    }
+                }
+            }
+        }
+
+        return { hasCustom: hasCustom, limit: limitValue };
+    }
+
     function normalizeLotteries(raw) {
         if (!raw) {
             return [];
@@ -373,11 +455,10 @@
     }
 
     $(document).on('found_variation', 'form.variations_form', function (event, variation) {
-        var hasCustom = variation && !!variation.lm_ticket_allocation_defined;
-        var limitValue = variation ? variation.lm_ticket_allocation : null;
+        var resolution = resolveVariationTicketLimit($(this), variation);
         setTicketLimit($(this), {
-            hasCustom: hasCustom,
-            limit: limitValue
+            hasCustom: resolution.hasCustom,
+            limit: resolution.limit
         });
     });
 
