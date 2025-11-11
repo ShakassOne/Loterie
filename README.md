@@ -67,6 +67,7 @@ Lorsque les critères sont remplis (tickets valides disponibles et loterie prêt
 
 ## Historique des versions
 
+- **1.3.11** : ajout d’un bouton de réinitialisation par loterie (dashboard et fiche détaillée) avec messages contextualisés et blocage automatique en présence de tickets valides.
 - **1.3.10** : bouton d’administration pour réinitialiser les compteurs de tickets avec contrôle des ventes actives.
 - **1.3.9** : annulation automatique des tickets lorsque la commande passe sur un statut exclu (annulée, remboursée, etc.).
 - **1.3.8** : filtres dynamiques et AJAX pour `[lm_loterie_grid]`, conservation des colonnes configurées et boutons de filtres harmonisés.
