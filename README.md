@@ -15,6 +15,7 @@ Le plugin **Loterie Manager** ajoute une couche de gestion de loteries aux sites
    - **Capacité totale de tickets** : nombre maximal de tickets disponibles.
    - **Statut affiché** : sélection manuelle du badge visible côté site (automatique par défaut, ou bien *En cours*, *À venir*, *Annulées*, *Suspendues*, *Terminées*).
    - **Description du lot** : informations sur le lot mis en jeu.
+   - **Date de début** : moment à partir duquel la loterie est considérée comme démarrée (le compteur de jours reste à zéro avant cette date).
    - **Date de fin** : échéance de la loterie (affichée sur le site et dans l'espace client).
 3. Publiez l'article pour qu'il devienne disponible comme loterie (les brouillons, articles privés ou planifiés ne seront pas proposés lors de la sélection sur les produits).
 4. Vérifiez que la métabox affiche bien les valeurs enregistrées : elles seront utilisées pour alimenter le popup de sélection.
@@ -31,7 +32,7 @@ Le shortcode `[lm_loterie_sold id="123"]` renvoie uniquement le nombre total de 
 
 > ℹ️ **Comment est calculé le « Jour » ?**
 >
-> Le badge « Jour X » correspond désormais au nombre de jours écoulés depuis la publication de l’article-loterie. Le plugin récupère la date de création de l’article, calcule la différence avec l’heure actuelle (`current_time('timestamp')`), puis ajoute 1 pour afficher « Jour 1 » le jour du lancement, « Jour 2 » le lendemain, etc. Pour remettre le compteur à zéro, modifiez la date de publication de l’article (onglet **Publier** → lien **Modifier** à côté de la date) puis enregistrez : le bandeau reflètera immédiatement cette nouvelle date de départ.
+> Le badge « Jour X » correspond désormais au nombre de jours écoulés depuis la **date de début** renseignée dans la métabox. Tant que cette date n’est pas atteinte, le compteur reste bloqué sur « Jour 0 ». Si aucun début n’est défini, le plugin se rabat sur la date de publication de l’article, calcule la différence avec l’heure actuelle (`current_time('timestamp')`), puis ajoute 1 pour afficher « Jour 1 » le jour du lancement, « Jour 2 » le lendemain, etc. Pour remettre le compteur à zéro, ajustez la date de début (ou, à défaut, la date de publication) puis enregistrez : le bandeau reflètera immédiatement cette nouvelle date de départ.
 
 ## Configuration des produits WooCommerce
 
@@ -67,6 +68,7 @@ Lorsque les critères sont remplis (tickets valides disponibles et loterie prêt
 
 ## Historique des versions
 
+- **1.3.13** : ajout d'un champ de date de début pour différer automatiquement le démarrage des compteurs et du statut des loteries à venir.
 - **1.3.12** : ajout d’une option de réinitialisation forcée (dashboard et fiche loterie) avec avertissements dédiés lorsque des tickets valides subsistent.
 - **1.3.11** : ajout d’un bouton de réinitialisation par loterie (dashboard et fiche détaillée) avec messages contextualisés et blocage automatique en présence de tickets valides.
 - **1.3.10** : bouton d’administration pour réinitialiser les compteurs de tickets avec contrôle des ventes actives.
@@ -105,6 +107,7 @@ Le code principal du plugin se trouve dans `loterie-manager.php` et suit une arc
 | Article | `_lm_ticket_capacity` | Capacité totale de tickets |
 | Article | `_lm_loterie_status` | Statut affiché manuellement sur le site |
 | Article | `_lm_lot_description` | Description du lot |
+| Article | `_lm_start_date` | Date de début |
 | Article | `_lm_end_date` | Date de fin |
 | Article | `_lm_tickets_sold` | Tickets vendus (mis à jour à la validation des commandes et lors des réaffectations) |
 | Produit | `_lm_product_ticket_allocation` | Tickets attribués par achat |
