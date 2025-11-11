@@ -67,6 +67,7 @@ Lorsque les critères sont remplis (tickets valides disponibles et loterie prêt
 
 ## Historique des versions
 
+- **1.3.10** : bouton d’administration pour réinitialiser les compteurs de tickets avec contrôle des ventes actives.
 - **1.3.9** : annulation automatique des tickets lorsque la commande passe sur un statut exclu (annulée, remboursée, etc.).
 - **1.3.8** : filtres dynamiques et AJAX pour `[lm_loterie_grid]`, conservation des colonnes configurées et boutons de filtres harmonisés.
 - **1.3.7** : ajout d'un champ de statut manuel pour les loteries (En cours, À venir, Annulées, Suspendues, Terminées) avec badges et filtres front-end mis à jour.
