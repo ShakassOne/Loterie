@@ -3,7 +3,7 @@
 Plugin Name: WinShirt Loterie Manager
 Plugin URI: https://github.com/ShakassOne/loterie-winshirt
 Description: Gestion des loteries pour WooCommerce.
-Version: 1.3.16
+Version: 1.3.17
 Author: Shakass Communication
 Author URI: https://shakass.com
 Text Domain: loterie-winshirt
@@ -19,7 +19,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
 
     final class Loterie_Manager {
 
-        const VERSION = '1.3.16';
+        const VERSION = '1.3.17';
 
         /**
          * Meta key storing total ticket capacity for a loterie (post).
@@ -542,17 +542,24 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 return;
             }
 
-            if ( ! is_object( $attribute ) || empty( $attribute->attribute_id ) ) {
-                return;
+            $attribute_id = 0;
+
+            if ( is_object( $attribute ) ) {
+                if ( isset( $attribute->attribute_id ) ) {
+                    $attribute_id = intval( $attribute->attribute_id );
+                } elseif ( isset( $attribute->id ) ) {
+                    $attribute_id = intval( $attribute->id );
+                } elseif ( method_exists( $attribute, 'get_id' ) ) {
+                    $attribute_id = intval( $attribute->get_id() );
+                }
             }
 
-            $attribute_id = intval( $attribute->attribute_id );
-            if ( $attribute_id <= 0 ) {
-                return;
+            if ( $attribute_id <= 0 && isset( $_GET['edit'] ) ) {
+                $attribute_id = absint( wp_unslash( $_GET['edit'] ) );
             }
 
             $field_id = 'lm_attribute_always_visible';
-            $checked  = $this->is_attribute_always_visible( $attribute_id );
+            $checked  = $attribute_id > 0 ? $this->is_attribute_always_visible( $attribute_id ) : false;
             ?>
             <tr class="form-field">
                 <th scope="row" valign="top">
@@ -585,7 +592,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 return;
             }
 
-            if ( ! $this->should_persist_attribute_visibility() ) {
+            if ( ! $this->should_persist_attribute_visibility( $attribute_id ) ) {
                 return;
             }
 
@@ -622,7 +629,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
          *
          * @return bool
          */
-        private function should_persist_attribute_visibility() {
+        private function should_persist_attribute_visibility( $attribute_id = 0 ) {
             if ( ! is_admin() ) {
                 return false;
             }
@@ -633,7 +640,23 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
 
             $nonce = sanitize_text_field( wp_unslash( $_POST['woocommerce_attribute_nonce'] ) );
 
-            return (bool) wp_verify_nonce( $nonce, 'woocommerce-save-attribute' );
+            if ( wp_verify_nonce( $nonce, 'woocommerce-save-attribute' ) ) {
+                return true;
+            }
+
+            $attribute_id = absint( $attribute_id );
+
+            if ( $attribute_id > 0 ) {
+                if ( wp_verify_nonce( $nonce, 'woocommerce-update-attribute_' . $attribute_id ) ) {
+                    return true;
+                }
+            }
+
+            if ( wp_verify_nonce( $nonce, 'woocommerce-update-attribute' ) ) {
+                return true;
+            }
+
+            return false;
         }
 
         /**

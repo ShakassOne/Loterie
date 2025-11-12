@@ -122,6 +122,15 @@
             $select.prepend($('<option>', { value: '', text: placeholderText }));
         }
 
+        var $optionsClone = $();
+        $select.find('option').each(function () {
+            $optionsClone = $optionsClone.add($(this).clone());
+        });
+
+        if ($optionsClone.length) {
+            $select.data('attribute_options', $optionsClone);
+        }
+
         $select.closest('tr').show();
         $select.closest('.woocommerce-variation').show();
 
