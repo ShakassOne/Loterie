@@ -68,6 +68,7 @@ Lorsque les critères sont remplis (tickets valides disponibles et loterie prêt
 
 ## Historique des versions
 
+- **1.3.16** : ajout d’un commutateur « Toujours afficher cet attribut » pour les attributs globaux WooCommerce et forçage de l’affichage des options de variation associées côté boutique.
 - **1.3.13** : ajout d'un champ de date de début pour différer automatiquement le démarrage des compteurs et du statut des loteries à venir.
 - **1.3.12** : ajout d’une option de réinitialisation forcée (dashboard et fiche loterie) avec avertissements dédiés lorsque des tickets valides subsistent.
 - **1.3.11** : ajout d’un bouton de réinitialisation par loterie (dashboard et fiche détaillée) avec messages contextualisés et blocage automatique en présence de tickets valides.

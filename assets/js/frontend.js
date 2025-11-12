@@ -3,6 +3,212 @@
 
     var pendingForm = null;
     var bypassModal = false;
+    var alwaysVisibleHandlerInitialized = false;
+
+    var raf = typeof window.requestAnimationFrame === 'function'
+        ? window.requestAnimationFrame.bind(window)
+        : function (callback) {
+            return window.setTimeout(callback, 16);
+        };
+
+    function getAlwaysVisibleAttributes($form) {
+        if (!$form || !$form.length) {
+            return [];
+        }
+
+        var cached = $form.data('lmAlwaysVisibleAttributes');
+        if (cached) {
+            return cached;
+        }
+
+        var attributes = [];
+        var $dataNode = $form.find('.lm-attribute-visibility-data').first();
+
+        if ($dataNode.length) {
+            var raw = $dataNode.attr('data-always-visible-attributes') || '';
+
+            if (raw) {
+                try {
+                    var parsed = JSON.parse(raw);
+                    if (Array.isArray(parsed)) {
+                        attributes = parsed;
+                    }
+                } catch (error) {
+                    attributes = [];
+                }
+            }
+        }
+
+        attributes = attributes
+            .filter(function (attribute) {
+                return typeof attribute === 'string' && attribute.trim().length > 0;
+            })
+            .map(function (attribute) {
+                return attribute.trim();
+            });
+
+        $form.data('lmAlwaysVisibleAttributes', attributes);
+
+        return attributes;
+    }
+
+    function storeOriginalAttributeOptions($select) {
+        if (!$select || !$select.length) {
+            return;
+        }
+
+        if ($select.data('lmOriginalOptionsHtml')) {
+            return;
+        }
+
+        var fragments = [];
+        var storedOptions = $select.data('attribute_options');
+
+        if (storedOptions && storedOptions.length) {
+            var hasPlaceholder = false;
+
+            $(storedOptions).each(function (_, option) {
+                var $option = $(option).clone();
+                if ($option.val && $option.val() === '') {
+                    hasPlaceholder = true;
+                }
+                fragments.push($('<div>').append($option).html());
+            });
+
+            if (!hasPlaceholder) {
+                var placeholderOption = $select.find('option[value=""]').first();
+                if (placeholderOption.length) {
+                    fragments.unshift($('<div>').append(placeholderOption.clone()).html());
+                }
+            }
+        } else {
+            $select.find('option').each(function () {
+                fragments.push($('<div>').append($(this).clone()).html());
+            });
+        }
+
+        $select.data('lmOriginalOptionsHtml', fragments.join(''));
+    }
+
+    function restoreAlwaysVisibleAttributeOptions($select) {
+        if (!$select || !$select.length) {
+            return;
+        }
+
+        storeOriginalAttributeOptions($select);
+
+        var originalHtml = $select.data('lmOriginalOptionsHtml');
+        if (!originalHtml) {
+            return;
+        }
+
+        var previousValue = $select.val();
+
+        $select.html(originalHtml);
+
+        if (previousValue && $select.find('option[value="' + previousValue + '"]').length) {
+            $select.val(previousValue);
+        }
+
+        $select.find('option').prop('disabled', false).removeAttr('disabled');
+        $select.prop('disabled', false);
+
+        var placeholderText = $select.data('placeholder');
+        if (!placeholderText && typeof wc_add_to_cart_variation_params !== 'undefined' && wc_add_to_cart_variation_params && wc_add_to_cart_variation_params.i18n_choose_an_option_text) {
+            placeholderText = wc_add_to_cart_variation_params.i18n_choose_an_option_text;
+        }
+
+        if (placeholderText && !$select.find('option[value=""]').length) {
+            $select.prepend($('<option>', { value: '', text: placeholderText }));
+        }
+
+        $select.closest('tr').show();
+        $select.closest('.woocommerce-variation').show();
+
+        if ($select.hasClass('wc-enhanced-select') || $select.hasClass('select2-hidden-accessible') || $select.data('select2') || $select.data('selectWoo')) {
+            $(document.body).trigger('wc-enhanced-select-init', { elements: $select });
+        }
+    }
+
+    function refreshAlwaysVisibleAttributes($form) {
+        var attributes = getAlwaysVisibleAttributes($form);
+        if (!attributes.length) {
+            return;
+        }
+
+        attributes.forEach(function (attributeName) {
+            if (typeof attributeName !== 'string' || !attributeName.length) {
+                return;
+            }
+
+            var selector = '.variations select[name="' + attributeName + '"]';
+            var $select = $form.find(selector);
+            if (!$select.length) {
+                return;
+            }
+
+            restoreAlwaysVisibleAttributeOptions($select);
+        });
+    }
+
+    function scheduleAlwaysVisibleRefresh($form) {
+        if (!$form || !$form.length) {
+            return;
+        }
+
+        if ($form.data('lmAlwaysVisibleRefreshScheduled')) {
+            return;
+        }
+
+        $form.data('lmAlwaysVisibleRefreshScheduled', true);
+
+        raf(function () {
+            $form.data('lmAlwaysVisibleRefreshScheduled', false);
+            refreshAlwaysVisibleAttributes($form);
+        });
+    }
+
+    function initializeAlwaysVisibleAttributes($form) {
+        if (!$form || !$form.length) {
+            return;
+        }
+
+        if ($form.data('lmAlwaysVisibleInitialized')) {
+            return;
+        }
+
+        if (!getAlwaysVisibleAttributes($form).length) {
+            return;
+        }
+
+        $form.data('lmAlwaysVisibleInitialized', true);
+
+        scheduleAlwaysVisibleRefresh($form);
+
+        $form.on('woocommerce_update_variation_values found_variation reset_data woocommerce_variation_has_changed', function () {
+            scheduleAlwaysVisibleRefresh($form);
+        });
+
+        $form.on('click', '.reset_variations', function () {
+            scheduleAlwaysVisibleRefresh($form);
+        });
+    }
+
+    function setupAlwaysVisibleAttributeHandlers() {
+        $('.variations_form').each(function () {
+            initializeAlwaysVisibleAttributes($(this));
+        });
+
+        if (alwaysVisibleHandlerInitialized) {
+            return;
+        }
+
+        alwaysVisibleHandlerInitialized = true;
+
+        $(document.body).on('wc_variation_form', function (event, $form) {
+            initializeAlwaysVisibleAttributes($form);
+        });
+    }
 
     function parseTicketLimit(value) {
         var limit = parseInt(value, 10);
@@ -534,6 +740,7 @@
 
     function initFrontendFeatures() {
         initializeTicketBadges();
+        setupAlwaysVisibleAttributeHandlers();
         initTiltCards();
     }
 
