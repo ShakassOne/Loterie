@@ -20,15 +20,93 @@ Le plugin **Loterie Manager** ajoute une couche de gestion de loteries aux sites
 3. Publiez l'article pour qu'il devienne disponible comme loterie (les brouillons, articles privés ou planifiés ne seront pas proposés lors de la sélection sur les produits).
 4. Vérifiez que la métabox affiche bien les valeurs enregistrées : elles seront utilisées pour alimenter le popup de sélection.
 
-### Shortcode
+## Lexique des shortcodes
 
-Utilisez `[lm_loterie id="123"]` pour afficher un résumé d'une loterie spécifique (remplacez `123` par l’ID de l’article). Sans paramètre `id`, le shortcode affiche désormais un catalogue interactif avec filtres dynamiques (statut, catégorie, recherche et tri) qui s'actualise via AJAX. Le paramètre optionnel `sort` permet de définir le tri par défaut (`date_desc`, `date_asc`, `title_asc`, `title_desc`). Pour afficher automatiquement la loterie la plus avancée (celle ayant vendu le plus de tickets), utilisez `[lm_loterie id="most_advanced"]`.
+Tous les shortcodes du module partagent la même logique d’internationalisation et respectent les permissions WooCommerce/WordPress. Les variantes ci-dessous couvrent les usages côté boutique et les intégrations éditoriales.
 
-Le shortcode `[lm_loterie_summary id="123"]` affiche désormais un bandeau coloré indiquant le jour écoulé depuis le lancement, le nombre d’articles encore disponibles et l’objectif total. Parfait pour insérer un rappel visuel percutant dans la description d’un produit.
+### `[lm_loterie]` — Carte unique ou catalogue filtrable
 
-Le shortcode `[lm_loterie_grid]` affiche automatiquement toutes les loteries publiées sous forme de grille responsive. Il accepte plusieurs attributs optionnels (`posts_per_page`, `orderby`, `order`, `category`, `ids`, `exclude`, `status`, `empty_message`) pour filtrer ou personnaliser la liste rendue. Utilisez également `columns`, `columns_tablet` et `columns_mobile` pour définir respectivement le nombre de cartes par ligne sur desktop, tablette et mobile (par défaut la grille revient à trois colonnes sur tablette et à une colonne sur mobile lorsqu’un nombre de colonnes desktop est fourni). La grille embarque désormais le même panneau de filtres dynamiques que `[lm_loterie]` (statut, catégorie, recherche, tri) tout en conservant les colonnes configurées et l’ordre manuel défini via l’attribut `ids`.
+Affiche soit la carte complète d’une loterie précise, soit (en l’absence d’`id`) un catalogue dynamique doté de filtres AJAX pour explorer les tirages en cours, à venir ou terminés.
 
-Le shortcode `[lm_loterie_sold id="123"]` renvoie uniquement le nombre total de tickets vendus pour la loterie visée, sans balisage HTML additionnel, idéal pour l’intégrer dans une phrase ou un compteur personnalisé.
+**Attributs**
+
+| Attribut | Description | Valeurs acceptées | Valeur par défaut |
+| --- | --- | --- | --- |
+| `id` | Identifiant de l’article utilisé comme loterie. Utilisez la valeur spéciale `most_advanced` pour cibler automatiquement la loterie ayant vendu le plus de tickets. Quand l’attribut est omis, le shortcode rend la liste filtrable. | ID numérique de loterie, `most_advanced` ou vide | `''` |
+| `sort` | Tri appliqué au chargement initial du catalogue interactif. | `date_desc`, `date_asc`, `title_asc`, `title_desc` | `date_desc` |
+
+**À savoir**
+
+- Le catalogue affiche d’emblée toutes les loteries publiées puis laisse l’internaute filtrer par statut (`En cours`, `À venir`, `Annulées`, `Suspendues`, `Terminées`), par catégorie, par recherche textuelle et par tri.
+- Lorsqu’un `id` est fourni, les filtres sont masqués et seule la carte détaillée est affichée.
+- Le module gère automatiquement la récupération du contexte (tickets vendus, capacités, progression) et désactive l’affichage si l’identifiant est invalide.
+
+**Exemples rapides**
+
+- `[lm_loterie id="123"]` pour intégrer la carte de la loterie #123 dans une page.
+- `[lm_loterie id="most_advanced"]` afin de toujours afficher la loterie la plus avancée sans mise à jour manuelle.
+- `[lm_loterie sort="title_asc"]` pour charger par défaut la liste triée de A à Z tout en conservant les filtres en front.
+
+### `[lm_loterie_grid]` — Grille responsive filtrable
+
+Construit une grille responsive de loteries avec les mêmes filtres AJAX que `[lm_loterie]`. Les colonnes s’adaptent selon les attributs fournis et la grille respecte l’ordre manuel si des identifiants précis sont imposés.
+
+**Attributs**
+
+| Attribut | Description | Valeurs acceptées | Valeur par défaut |
+| --- | --- | --- | --- |
+| `posts_per_page` | Limite le nombre de cartes chargées initialement. La valeur `-1` (ou `0`) affiche toutes les loteries correspondantes. | Entier (ex. `6`, `12`, `-1`) | `-1` |
+| `orderby` | Champ de tri initial des résultats. | `date`, `title` | `date` |
+| `order` | Sens du tri correspondant à `orderby`. | `ASC`, `DESC` | `DESC` |
+| `category` | Filtre sur une ou plusieurs catégories d’articles (slugs séparés par virgule ou espace). | Slugs de catégories | `''` |
+| `ids` | Restreint la grille à une liste d’identifiants précis ; la grille respecte l’ordre fourni. | Liste d’IDs numériques | `''` |
+| `exclude` | Exclut certains identifiants de la sélection. | Liste d’IDs numériques | `''` |
+| `status` | Filtre les statuts WordPress des articles chargés (ex. `publish`, `draft`). | Liste de statuts WP séparés par virgule | `publish` |
+| `empty_message` | Message affiché lorsqu’aucune loterie ne correspond aux critères (laisser vide pour masquer le texte). | Chaîne libre | `Aucune loterie disponible pour le moment.` |
+| `columns` | Nombre de colonnes desktop. | Entier ≥ 0 | `0` (auto) |
+| `columns_tablet` | Nombre de colonnes tablette. Si omis mais `columns` défini, la valeur est ramenée au minimum entre `columns` et `3`. | Entier ≥ 0 | `0` (auto) |
+| `columns_mobile` | Nombre de colonnes mobile. Lorsqu’une valeur desktop ou tablette est fournie, un fallback à `1` est appliqué. | Entier ≥ 0 | `0` (auto) |
+
+**À savoir**
+
+- Les filtres AJAX côté client (statut, catégorie, recherche, tri) sont identiques à ceux du shortcode `[lm_loterie]` et permettent aux visiteurs d’afficher uniquement les loteries à venir ou terminées.
+- Lorsque `ids` est renseigné, la sélection est limitée à ces loteries et l’ordre reste identique à celui de la liste fournie (`post__in`).
+- Les attributs de colonnes contrôlent le rendu CSS ; laissez-les vides pour conserver le comportement responsive natif.
+
+**Exemples rapides**
+
+- `[lm_loterie_grid posts_per_page="6" columns="3" columns_tablet="2" columns_mobile="1"]` pour une grille paginée visuellement équilibrée.
+- `[lm_loterie_grid ids="42, 51, 78" empty_message="Revenez bientôt pour de nouvelles loteries !"]` pour mettre en avant une sélection éditoriale dans un ordre précis.
+
+### `[lm_loterie_summary]` — Bandeau de progression
+
+Affiche un bandeau synthétique (jour en cours, tickets restants, objectif) idéal dans une fiche produit ou en haut d’un article de blog.
+
+**Attributs**
+
+| Attribut | Description | Valeurs acceptées | Valeur par défaut |
+| --- | --- | --- | --- |
+| `id` | Identifiant de la loterie à résumer. Si l’attribut est omis, le shortcode utilise l’ID du contenu courant. | ID numérique ou vide | ID du contenu en cours |
+
+**Exemples rapides**
+
+- `[lm_loterie_summary id="123"]` pour rappeler la progression de la loterie #123 dans un bloc promotionnel.
+- `[lm_loterie_summary]` directement dans le contenu d’une loterie pour afficher automatiquement le bandeau correspondant.
+
+### `[lm_loterie_sold]` — Compteur brut de tickets vendus
+
+Renvoie uniquement le nombre de tickets vendus, sans balises supplémentaires, pour l’intégrer dans une phrase ou un design personnalisé.
+
+**Attributs**
+
+| Attribut | Description | Valeurs acceptées | Valeur par défaut |
+| --- | --- | --- | --- |
+| `id` | Identifiant de la loterie ciblée. À défaut, l’ID du contenu courant est utilisé. | ID numérique ou vide | ID du contenu en cours |
+
+**Exemples rapides**
+
+- `Il reste seulement [lm_loterie_sold id="123"] tickets vendus sur notre grand tirage !`
+- `[lm_loterie_sold]` dans une loterie pour afficher le total courant dans la description.
 
 > ℹ️ **Comment est calculé le « Jour » ?**
 >
@@ -68,6 +146,7 @@ Lorsque les critères sont remplis (tickets valides disponibles et loterie prêt
 
 ## Historique des versions
 
+- **1.3.18** : ajout d’un lexique détaillé des shortcodes (usages, attributs et exemples) pour faciliter l’intégration des loteries.
 - **1.3.17** : correction de la persistance du commutateur « Toujours afficher cet attribut » et maintien des options de variation actives côté boutique après modification d’un attribut.
 - **1.3.16** : ajout d’un commutateur « Toujours afficher cet attribut » pour les attributs globaux WooCommerce et forçage de l’affichage des options de variation associées côté boutique.
 - **1.3.13** : ajout d'un champ de date de début pour différer automatiquement le démarrage des compteurs et du statut des loteries à venir.
