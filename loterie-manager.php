@@ -3,7 +3,7 @@
 Plugin Name: WinShirt Loterie Manager
 Plugin URI: https://github.com/ShakassOne/loterie-winshirt
 Description: Gestion des loteries pour WooCommerce.
-Version: 1.3.15
+Version: 1.3.17
 Author: Shakass Communication
 Author URI: https://shakass.com
 Text Domain: loterie-winshirt
@@ -19,7 +19,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
 
     final class Loterie_Manager {
 
-        const VERSION = '1.3.15';
+        const VERSION = '1.3.17';
 
         /**
          * Meta key storing total ticket capacity for a loterie (post).
@@ -92,6 +92,11 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
         const OPTION_SETTINGS = 'lm_lottery_settings';
 
         /**
+         * Option key storing the mapping of attributes forced to stay visible.
+         */
+        const OPTION_ALWAYS_VISIBLE_ATTRIBUTES = 'lm_always_visible_attributes';
+
+        /**
          * Singleton instance.
          *
          * @var Loterie_Manager
@@ -111,6 +116,13 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
          * @var int|null
          */
         private $most_advanced_loterie_id = null;
+
+        /**
+         * Cache for the always-visible attribute map during the request lifecycle.
+         *
+         * @var array<int, bool>|null
+         */
+        private $attribute_visibility_map = null;
 
         /**
          * Bootstraps the plugin.
@@ -154,6 +166,11 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 add_action( 'admin_post_lm_reset_lottery_counters', array( $this, 'handle_reset_lottery_counters' ) );
                 add_action( 'woocommerce_product_after_variable_attributes', array( $this, 'render_variation_ticket_field' ), 10, 3 );
                 add_action( 'woocommerce_save_product_variation', array( $this, 'save_variation_ticket_field' ), 10, 2 );
+                add_action( 'woocommerce_after_add_attribute_fields', array( $this, 'render_attribute_visibility_field_add' ) );
+                add_action( 'woocommerce_after_edit_attribute_fields', array( $this, 'render_attribute_visibility_field_edit' ), 10, 1 );
+                add_action( 'woocommerce_attribute_added', array( $this, 'persist_attribute_visibility_setting' ), 10, 2 );
+                add_action( 'woocommerce_attribute_updated', array( $this, 'persist_attribute_visibility_setting' ), 10, 2 );
+                add_action( 'woocommerce_attribute_deleted', array( $this, 'delete_attribute_visibility_setting' ), 10, 2 );
             }
 
             // Product fields.
@@ -161,6 +178,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             add_action( 'woocommerce_process_product_meta', array( $this, 'save_product_fields' ) );
             add_action( 'woocommerce_after_add_to_cart_button', array( $this, 'render_lottery_selection_data' ) );
             add_action( 'woocommerce_before_add_to_cart_button', array( $this, 'render_hidden_lottery_field' ) );
+            add_action( 'woocommerce_before_variations_form', array( $this, 'render_always_visible_attribute_data' ) );
             add_filter( 'woocommerce_add_to_cart_validation', array( $this, 'validate_lottery_selection' ), 10, 3 );
 
             // Product add to cart data handling.
@@ -494,6 +512,323 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             $variation_data['lm_ticket_allocation_defined'] = $has_custom;
 
             return $variation_data;
+        }
+
+        /**
+         * Renders the always-visible toggle on the add attribute form.
+         */
+        public function render_attribute_visibility_field_add() {
+            if ( ! current_user_can( 'manage_woocommerce' ) ) {
+                return;
+            }
+
+            $field_id = 'lm_attribute_always_visible_add';
+            ?>
+            <div class="form-field">
+                <label for="<?php echo esc_attr( $field_id ); ?>"><?php esc_html_e( 'Toujours afficher cet attribut', 'loterie-manager' ); ?></label>
+                <input type="checkbox" name="lm_attribute_always_visible" id="<?php echo esc_attr( $field_id ); ?>" value="1" />
+                <p class="description"><?php esc_html_e( 'Empêche WooCommerce de masquer cet attribut ou ses valeurs dans les variations.', 'loterie-manager' ); ?></p>
+            </div>
+            <?php
+        }
+
+        /**
+         * Renders the always-visible toggle on the edit attribute screen.
+         *
+         * @param stdClass $attribute Attribute object.
+         */
+        public function render_attribute_visibility_field_edit( $attribute ) {
+            if ( ! current_user_can( 'manage_woocommerce' ) ) {
+                return;
+            }
+
+            $attribute_id = 0;
+
+            if ( is_object( $attribute ) ) {
+                if ( isset( $attribute->attribute_id ) ) {
+                    $attribute_id = intval( $attribute->attribute_id );
+                } elseif ( isset( $attribute->id ) ) {
+                    $attribute_id = intval( $attribute->id );
+                } elseif ( method_exists( $attribute, 'get_id' ) ) {
+                    $attribute_id = intval( $attribute->get_id() );
+                }
+            }
+
+            if ( $attribute_id <= 0 && isset( $_GET['edit'] ) ) {
+                $attribute_id = absint( wp_unslash( $_GET['edit'] ) );
+            }
+
+            $field_id = 'lm_attribute_always_visible';
+            $checked  = $attribute_id > 0 ? $this->is_attribute_always_visible( $attribute_id ) : false;
+            ?>
+            <tr class="form-field">
+                <th scope="row" valign="top">
+                    <label for="<?php echo esc_attr( $field_id ); ?>"><?php esc_html_e( 'Toujours afficher cet attribut', 'loterie-manager' ); ?></label>
+                </th>
+                <td>
+                    <fieldset>
+                        <label for="<?php echo esc_attr( $field_id ); ?>">
+                            <input type="checkbox" name="lm_attribute_always_visible" id="<?php echo esc_attr( $field_id ); ?>" value="1" <?php checked( $checked ); ?> />
+                            <?php esc_html_e( 'Maintient toutes les valeurs accessibles dans le sélecteur de variations.', 'loterie-manager' ); ?>
+                        </label>
+                        <p class="description"><?php esc_html_e( 'Lorsque cette option est activée, l’attribut reste affiché même si aucune variation ne correspond à certaines valeurs.', 'loterie-manager' ); ?></p>
+                    </fieldset>
+                </td>
+            </tr>
+            <?php
+        }
+
+        /**
+         * Persists the always-visible toggle when an attribute is created or updated.
+         *
+         * @param int   $attribute_id Attribute ID.
+         * @param array $data         Raw attribute data.
+         */
+        public function persist_attribute_visibility_setting( $attribute_id, $data = array() ) {
+            unset( $data );
+
+            $attribute_id = absint( $attribute_id );
+            if ( $attribute_id <= 0 ) {
+                return;
+            }
+
+            if ( ! $this->should_persist_attribute_visibility( $attribute_id ) ) {
+                return;
+            }
+
+            $raw_value = isset( $_POST['lm_attribute_always_visible'] ) ? wp_unslash( $_POST['lm_attribute_always_visible'] ) : '';
+            $flag      = in_array( $raw_value, array( '1', 'yes', 'on', 'true' ), true );
+
+            $this->set_attribute_visibility( $attribute_id, $flag );
+        }
+
+        /**
+         * Removes the visibility flag when an attribute is deleted.
+         *
+         * @param int   $attribute_id Attribute ID.
+         * @param array $data         Raw attribute data.
+         */
+        public function delete_attribute_visibility_setting( $attribute_id, $data = array() ) {
+            unset( $data );
+
+            $attribute_id = absint( $attribute_id );
+            if ( $attribute_id <= 0 ) {
+                return;
+            }
+
+            $map = $this->get_attribute_visibility_map();
+
+            if ( isset( $map[ $attribute_id ] ) ) {
+                unset( $map[ $attribute_id ] );
+                $this->set_attribute_visibility_map( $map );
+            }
+        }
+
+        /**
+         * Determines whether the current request should persist attribute visibility data.
+         *
+         * @return bool
+         */
+        private function should_persist_attribute_visibility( $attribute_id = 0 ) {
+            if ( ! is_admin() ) {
+                return false;
+            }
+
+            if ( ! isset( $_POST['woocommerce_attribute_nonce'] ) ) {
+                return false;
+            }
+
+            $nonce = sanitize_text_field( wp_unslash( $_POST['woocommerce_attribute_nonce'] ) );
+
+            if ( wp_verify_nonce( $nonce, 'woocommerce-save-attribute' ) ) {
+                return true;
+            }
+
+            $attribute_id = absint( $attribute_id );
+
+            if ( $attribute_id > 0 ) {
+                if ( wp_verify_nonce( $nonce, 'woocommerce-update-attribute_' . $attribute_id ) ) {
+                    return true;
+                }
+            }
+
+            if ( wp_verify_nonce( $nonce, 'woocommerce-update-attribute' ) ) {
+                return true;
+            }
+
+            return false;
+        }
+
+        /**
+         * Retrieves the cached visibility map, sanitized for current request.
+         *
+         * @return array<int, bool>
+         */
+        private function get_attribute_visibility_map() {
+            if ( null !== $this->attribute_visibility_map ) {
+                return $this->attribute_visibility_map;
+            }
+
+            $stored = get_option( self::OPTION_ALWAYS_VISIBLE_ATTRIBUTES, array() );
+            if ( ! is_array( $stored ) ) {
+                $stored = array();
+            }
+
+            $map = array();
+            foreach ( $stored as $attribute_id => $flag ) {
+                $attribute_id = absint( $attribute_id );
+                if ( $attribute_id <= 0 ) {
+                    continue;
+                }
+
+                $map[ $attribute_id ] = (bool) $flag;
+            }
+
+            $this->attribute_visibility_map = $map;
+
+            return $map;
+        }
+
+        /**
+         * Persists the visibility map option and updates the cache.
+         *
+         * @param array<int, bool> $map Visibility map.
+         */
+        private function set_attribute_visibility_map( $map ) {
+            $sanitized = array();
+
+            foreach ( (array) $map as $attribute_id => $flag ) {
+                $attribute_id = absint( $attribute_id );
+                if ( $attribute_id <= 0 ) {
+                    continue;
+                }
+
+                $sanitized[ $attribute_id ] = (bool) $flag;
+            }
+
+            update_option( self::OPTION_ALWAYS_VISIBLE_ATTRIBUTES, $sanitized );
+            $this->attribute_visibility_map = $sanitized;
+        }
+
+        /**
+         * Updates the visibility flag for a specific attribute.
+         *
+         * @param int  $attribute_id Attribute ID.
+         * @param bool $visible      Visibility flag.
+         */
+        private function set_attribute_visibility( $attribute_id, $visible ) {
+            $attribute_id = absint( $attribute_id );
+            if ( $attribute_id <= 0 ) {
+                return;
+            }
+
+            $map = $this->get_attribute_visibility_map();
+
+            if ( $visible ) {
+                $map[ $attribute_id ] = true;
+            } else {
+                unset( $map[ $attribute_id ] );
+            }
+
+            $this->set_attribute_visibility_map( $map );
+        }
+
+        /**
+         * Checks whether an attribute is forced to remain visible.
+         *
+         * @param int $attribute_id Attribute ID.
+         *
+         * @return bool
+         */
+        private function is_attribute_always_visible( $attribute_id ) {
+            $attribute_id = absint( $attribute_id );
+            if ( $attribute_id <= 0 ) {
+                return false;
+            }
+
+            $map = $this->get_attribute_visibility_map();
+
+            return ! empty( $map[ $attribute_id ] );
+        }
+
+        /**
+         * Retrieves the variation attribute keys that should remain visible for a product.
+         *
+         * @param WC_Product $product Product instance.
+         *
+         * @return array<int, string>
+         */
+        private function get_product_always_visible_attribute_names( $product ) {
+            if ( ! $product instanceof WC_Product ) {
+                return array();
+            }
+
+            if ( ! $product->is_type( 'variable' ) ) {
+                return array();
+            }
+
+            if ( ! function_exists( 'wc_attribute_taxonomy_id_by_name' ) || ! function_exists( 'wc_variation_attribute_name' ) ) {
+                return array();
+            }
+
+            $map = $this->get_attribute_visibility_map();
+            if ( empty( $map ) ) {
+                return array();
+            }
+
+            $variation_attributes = $product->get_variation_attributes();
+            if ( empty( $variation_attributes ) ) {
+                return array();
+            }
+
+            $attribute_names = array();
+
+            foreach ( array_keys( $variation_attributes ) as $attribute_key ) {
+                $taxonomy = wc_variation_attribute_name( $attribute_key );
+                if ( ! $taxonomy ) {
+                    continue;
+                }
+
+                $attribute_id = wc_attribute_taxonomy_id_by_name( $taxonomy );
+
+                if ( $attribute_id && ! empty( $map[ $attribute_id ] ) ) {
+                    $attribute_names[] = $attribute_key;
+                }
+            }
+
+            return array_values( array_unique( $attribute_names ) );
+        }
+
+        /**
+         * Outputs always-visible attribute information for the variations form.
+         */
+        public function render_always_visible_attribute_data() {
+            if ( ! class_exists( 'WC_Product' ) ) {
+                return;
+            }
+
+            global $product;
+
+            if ( ! $product instanceof WC_Product ) {
+                return;
+            }
+
+            $attribute_names = $this->get_product_always_visible_attribute_names( $product );
+
+            if ( empty( $attribute_names ) ) {
+                return;
+            }
+
+            $json = wp_json_encode( array_values( $attribute_names ) );
+
+            if ( false === $json ) {
+                return;
+            }
+
+            printf(
+                '<div class="lm-attribute-visibility-data" data-always-visible-attributes="%s"></div>',
+                esc_attr( $json )
+            );
         }
 
         /**
