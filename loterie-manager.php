@@ -3,7 +3,7 @@
 Plugin Name: WinShirt Loterie Manager
 Plugin URI: https://github.com/ShakassOne/loterie-winshirt
 Description: Gestion des loteries pour WooCommerce.
-Version: 1.3.17
+Version: 1.3.18
 Author: Shakass Communication
 Author URI: https://shakass.com
 Text Domain: loterie-winshirt
@@ -19,7 +19,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
 
     final class Loterie_Manager {
 
-        const VERSION = '1.3.17';
+        const VERSION = '1.3.18';
 
         /**
          * Meta key storing total ticket capacity for a loterie (post).
@@ -35,6 +35,11 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
          * Meta key storing loterie end date.
          */
         const META_END_DATE = '_lm_end_date';
+
+        /**
+         * Meta key storing the participation URL for a loterie (post).
+         */
+        const META_PARTICIPATION_URL = '_lm_participation_url';
 
         /**
          * Meta key storing loterie start date.
@@ -1450,11 +1455,9 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                         $image_url = wc_placeholder_img_src();
                     }
 
-                    $permalink = get_permalink( $post );
-
                     $details[ $loterie_id ] = array(
                         'title'     => $title,
-                        'permalink' => $permalink ? $permalink : '',
+                        'permalink' => $this->get_loterie_cta_url( $loterie_id ),
                         'image_url' => $image_url ? $image_url : '',
                     );
                 }
@@ -1592,10 +1595,11 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
         public function render_loterie_meta_box( $post ) {
             wp_nonce_field( 'lm_save_loterie_meta', 'lm_loterie_nonce' );
 
-            $capacity   = intval( get_post_meta( $post->ID, self::META_TICKET_CAPACITY, true ) );
-            $lot        = get_post_meta( $post->ID, self::META_LOT_DESCRIPTION, true );
-            $start_date = get_post_meta( $post->ID, self::META_START_DATE, true );
-            $end_date   = get_post_meta( $post->ID, self::META_END_DATE, true );
+            $capacity         = intval( get_post_meta( $post->ID, self::META_TICKET_CAPACITY, true ) );
+            $lot              = get_post_meta( $post->ID, self::META_LOT_DESCRIPTION, true );
+            $start_date       = get_post_meta( $post->ID, self::META_START_DATE, true );
+            $end_date         = get_post_meta( $post->ID, self::META_END_DATE, true );
+            $participation_url = get_post_meta( $post->ID, self::META_PARTICIPATION_URL, true );
             $status          = get_post_meta( $post->ID, self::META_STATUS_OVERRIDE, true );
             $status_options  = $this->get_loterie_status_options();
 
@@ -1624,6 +1628,11 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             <p>
                 <label for="lm_end_date"><strong><?php esc_html_e( 'Date de fin', 'loterie-manager' ); ?></strong></label><br />
                 <input type="date" id="lm_end_date" name="lm_end_date" value="<?php echo esc_attr( $end_date ); ?>" />
+            </p>
+            <p>
+                <label for="lm_participation_url"><strong><?php esc_html_e( 'URL du bouton « Participer »', 'loterie-manager' ); ?></strong></label><br />
+                <input type="url" id="lm_participation_url" name="lm_participation_url" value="<?php echo esc_attr( $participation_url ); ?>" placeholder="https://example.com/ma-loterie" />
+                <span class="description"><?php esc_html_e( 'Laisser vide pour utiliser le permalien de l’article.', 'loterie-manager' ); ?></span>
             </p>
             <?php
         }
@@ -1666,6 +1675,14 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
 
             $end_date = isset( $_POST['lm_end_date'] ) ? sanitize_text_field( wp_unslash( $_POST['lm_end_date'] ) ) : '';
             update_post_meta( $post_id, self::META_END_DATE, $end_date );
+
+            $participation_url = isset( $_POST['lm_participation_url'] ) ? esc_url_raw( wp_unslash( $_POST['lm_participation_url'] ) ) : '';
+
+            if ( '' === $participation_url ) {
+                delete_post_meta( $post_id, self::META_PARTICIPATION_URL );
+            } else {
+                update_post_meta( $post_id, self::META_PARTICIPATION_URL, $participation_url );
+            }
         }
 
         /**
@@ -1714,6 +1731,37 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
         }
 
         /**
+         * Returns the URL used for the "Participer" button of a loterie.
+         *
+         * @param int $post_id Loterie post ID.
+         *
+         * @return string
+         */
+        private function get_loterie_cta_url( $post_id ) {
+            $post_id = absint( $post_id );
+
+            if ( ! $post_id ) {
+                return '';
+            }
+
+            $custom_url = get_post_meta( $post_id, self::META_PARTICIPATION_URL, true );
+
+            if ( is_string( $custom_url ) ) {
+                $custom_url = trim( $custom_url );
+            } else {
+                $custom_url = '';
+            }
+
+            if ( '' !== $custom_url ) {
+                return esc_url_raw( $custom_url );
+            }
+
+            $permalink = get_permalink( $post_id );
+
+            return $permalink ? $permalink : '';
+        }
+
+        /**
          * Builds a reusable context for loterie display components.
          *
          * @param int $post_id Loterie post ID.
@@ -1732,6 +1780,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             $lot          = get_post_meta( $post_id, self::META_LOT_DESCRIPTION, true );
             $start_date   = get_post_meta( $post_id, self::META_START_DATE, true );
             $end_date     = get_post_meta( $post_id, self::META_END_DATE, true );
+            $cta_url      = $this->get_loterie_cta_url( $post_id );
             $is_featured  = (bool) get_post_meta( $post_id, '_lm_is_featured', true );
             $start_time   = $start_date ? strtotime( $start_date ) : get_post_time( 'U', false, $post_id );
             $end_time     = $end_date ? strtotime( $end_date ) : false;
@@ -1856,7 +1905,8 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 'start_date'         => $start_date,
                 'end_date'           => $end_date,
                 'formatted_draw_date'=> $formatted_draw_date,
-                'permalink'          => get_permalink( $post_id ),
+                'permalink'          => $cta_url,
+                'article_permalink'  => get_permalink( $post_id ),
                 'thumbnail'          => get_the_post_thumbnail( $post_id, 'large', array( 'class' => 'lm-lottery-card__image', 'loading' => 'lazy' ) ),
                 'tickets_label'      => $tickets_label,
             );
