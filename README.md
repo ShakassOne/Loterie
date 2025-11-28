@@ -18,6 +18,8 @@ Le plugin **Loterie Manager** ajoute une couche de gestion de loteries aux sites
    - **Date de début** : moment à partir duquel la loterie est considérée comme démarrée (le compteur de jours reste à zéro avant cette date).
    - **Date de fin** : échéance de la loterie (affichée sur le site et dans l'espace client).
    - **URL du bouton « Participer »** : lien personnalisé à ouvrir lorsqu'un visiteur clique sur le bouton d'appel à l'action (laisser vide pour utiliser le permalien de l’article).
+   - **URL du bouton « Participer » (miniature)** : lien dédié pour les vignettes/front-end, pratique pour renvoyer directement vers une fiche produit ou une page spéciale (laisse vide pour utiliser l’URL précédente ou le permalien).
+   - **Masquer le bouton pour les loteries à venir** : option pour afficher une carte informative sans CTA tant que la date de début n’est pas atteinte.
 3. Publiez l'article pour qu'il devienne disponible comme loterie (les brouillons, articles privés ou planifiés ne seront pas proposés lors de la sélection sur les produits).
 4. Vérifiez que la métabox affiche bien les valeurs enregistrées : elles seront utilisées pour alimenter le popup de sélection.
 
@@ -69,6 +71,8 @@ Lorsque les critères sont remplis (tickets valides disponibles et loterie prêt
 
 ## Historique des versions
 
+- **1.3.20** : URL dédiée pour le bouton des miniatures et option pour masquer le CTA des loteries à venir.
+- **1.3.19** : amélioration de la configuration front-end et ajustements mineurs de stabilité.
 - **1.3.18** : ajout d’un champ d’URL pour personnaliser la destination du bouton « Participer » dans la métabox des loteries.
 - **1.3.17** : correction de la persistance du commutateur « Toujours afficher cet attribut » et maintien des options de variation actives côté boutique après modification d’un attribut.
 - **1.3.16** : ajout d’un commutateur « Toujours afficher cet attribut » pour les attributs globaux WooCommerce et forçage de l’affichage des options de variation associées côté boutique.
@@ -114,6 +118,8 @@ Le code principal du plugin se trouve dans `loterie-manager.php` et suit une arc
 | Article | `_lm_start_date` | Date de début |
 | Article | `_lm_end_date` | Date de fin |
 | Article | `_lm_participation_url` | URL personnalisée du bouton « Participer » |
+| Article | `_lm_card_participation_url` | URL personnalisée du bouton « Participer » sur les miniatures |
+| Article | `_lm_hide_upcoming_cta` | Masquage du bouton « Participer » tant que la loterie est à venir |
 | Article | `_lm_tickets_sold` | Tickets vendus (mis à jour à la validation des commandes et lors des réaffectations) |
 | Produit | `_lm_product_ticket_allocation` | Tickets attribués par achat |
 | Produit | `_lm_product_target_lotteries` | Loteries éligibles |
