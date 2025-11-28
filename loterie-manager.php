@@ -3,7 +3,7 @@
 Plugin Name: WinShirt Loterie Manager
 Plugin URI: https://github.com/ShakassOne/loterie-winshirt
 Description: Gestion des loteries pour WooCommerce.
-Version: 1.3.18
+Version: 1.3.19
 Author: Shakass Communication
 Author URI: https://shakass.com
 Text Domain: loterie-winshirt
@@ -19,7 +19,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
 
     final class Loterie_Manager {
 
-        const VERSION = '1.3.18';
+        const VERSION = '1.3.19';
 
         /**
          * Meta key storing total ticket capacity for a loterie (post).
@@ -474,20 +474,19 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
 
             $field_name = 'lm_ticket_allocation_variation';
 
-            if ( isset( $_POST[ $field_name ][ $variation_id ] ) ) {
-                $raw_value = wp_unslash( $_POST[ $field_name ][ $variation_id ] );
-
-                if ( '' === $raw_value ) {
-                    delete_post_meta( $variation_id, self::META_VARIATION_TICKET_ALLOCATION );
-                    return;
-                }
-
-                $value = max( 0, intval( $raw_value ) );
-                update_post_meta( $variation_id, self::META_VARIATION_TICKET_ALLOCATION, $value );
+            if ( ! isset( $_POST[ $field_name ][ $variation_id ] ) ) {
                 return;
             }
 
-            delete_post_meta( $variation_id, self::META_VARIATION_TICKET_ALLOCATION );
+            $raw_value = wp_unslash( $_POST[ $field_name ][ $variation_id ] );
+
+            if ( '' === $raw_value ) {
+                delete_post_meta( $variation_id, self::META_VARIATION_TICKET_ALLOCATION );
+                return;
+            }
+
+            $value = max( 0, intval( $raw_value ) );
+            update_post_meta( $variation_id, self::META_VARIATION_TICKET_ALLOCATION, $value );
         }
 
         /**
