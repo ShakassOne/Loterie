@@ -33,6 +33,8 @@ Le shortcode `[lm_loterie_grid]` affiche automatiquement toutes les loteries pub
 
 Le shortcode `[lm_loterie_sold id="123"]` renvoie uniquement le nombre total de tickets vendus pour la loterie visée, sans balisage HTML additionnel, idéal pour l’intégrer dans une phrase ou un compteur personnalisé.
 
+Le shortcode `[lm_loterie_remaining id="123"]` affiche uniquement le temps restant avant la fin de la loterie, avec un texte paramétrable lorsque la date de fin est absente ou que la loterie est terminée (attributs `no_date_text` et `ended_text`).
+
 > ℹ️ **Comment est calculé le « Jour » ?**
 >
 > Le badge « Jour X » correspond désormais au nombre de jours écoulés depuis la **date de début** renseignée dans la métabox. Tant que cette date n’est pas atteinte, le compteur reste bloqué sur « Jour 0 ». Si aucun début n’est défini, le plugin se rabat sur la date de publication de l’article, calcule la différence avec l’heure actuelle (`current_time('timestamp')`), puis ajoute 1 pour afficher « Jour 1 » le jour du lancement, « Jour 2 » le lendemain, etc. Pour remettre le compteur à zéro, ajustez la date de début (ou, à défaut, la date de publication) puis enregistrez : le bandeau reflètera immédiatement cette nouvelle date de départ.
@@ -71,6 +73,7 @@ Lorsque les critères sont remplis (tickets valides disponibles et loterie prêt
 
 ## Historique des versions
 
+- **1.3.21** : nouveau shortcode `[lm_loterie_remaining]` pour afficher le compte à rebours textuel d’une loterie.
 - **1.3.20** : URL dédiée pour le bouton des miniatures et option pour masquer le CTA des loteries à venir.
 - **1.3.19** : amélioration de la configuration front-end et ajustements mineurs de stabilité.
 - **1.3.18** : ajout d’un champ d’URL pour personnaliser la destination du bouton « Participer » dans la métabox des loteries.
