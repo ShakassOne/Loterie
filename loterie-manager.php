@@ -3,7 +3,7 @@
 Plugin Name: WinShirt Loterie Manager
 Plugin URI: https://github.com/ShakassOne/loterie-winshirt
 Description: Gestion des loteries pour WooCommerce.
-Version: 1.3.20
+Version: 1.3.21
 Author: Shakass Communication
 Author URI: https://shakass.com
 Text Domain: loterie-winshirt
@@ -19,7 +19,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
 
     final class Loterie_Manager {
 
-        const VERSION = '1.3.20';
+        const VERSION = '1.3.21';
 
         /**
          * Meta key storing total ticket capacity for a loterie (post).
@@ -218,6 +218,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             add_shortcode( 'lm_loterie', array( $this, 'render_loterie_shortcode' ) );
             add_shortcode( 'lm_loterie_summary', array( $this, 'render_loterie_summary_shortcode' ) );
             add_shortcode( 'lm_loterie_sold', array( $this, 'render_loterie_sold_shortcode' ) );
+            add_shortcode( 'lm_loterie_remaining', array( $this, 'render_loterie_remaining_shortcode' ) );
             add_shortcode( 'lm_loterie_grid', array( $this, 'render_loterie_grid_shortcode' ) );
 
             // Account area.
@@ -2963,6 +2964,79 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             <?php
 
             return (string) ob_get_clean();
+        }
+
+        /**
+         * Renders the remaining time before the end of a loterie via shortcode.
+         *
+         * @param array $atts Shortcode attributes.
+         *
+         * @return string
+         */
+        public function render_loterie_remaining_shortcode( $atts ) {
+            $atts = shortcode_atts(
+                array(
+                    'id'           => get_the_ID(),
+                    'separator'    => ' ',
+                    'ended_text'   => __( 'Loterie terminée', 'loterie-manager' ),
+                    'no_date_text' => '',
+                ),
+                $atts
+            );
+
+            $context = $this->get_loterie_display_context( $atts['id'] );
+            if ( empty( $context ) ) {
+                return '';
+            }
+
+            $end_date = isset( $context['end_date'] ) ? $context['end_date'] : '';
+            $end_time = $end_date ? strtotime( $end_date ) : false;
+
+            if ( ! $end_time ) {
+                return (string) $atts['no_date_text'];
+            }
+
+            $now = current_time( 'timestamp' );
+
+            if ( $end_time <= $now ) {
+                return '<span class="lm-loterie-remaining-time lm-loterie-remaining-time--ended">' . esc_html( $atts['ended_text'] ) . '</span>';
+            }
+
+            $diff = $end_time - $now;
+
+            $days    = floor( $diff / DAY_IN_SECONDS );
+            $hours   = floor( ( $diff % DAY_IN_SECONDS ) / HOUR_IN_SECONDS );
+            $minutes = floor( ( $diff % HOUR_IN_SECONDS ) / MINUTE_IN_SECONDS );
+
+            $parts = array();
+
+            if ( $days > 0 ) {
+                $parts[] = sprintf(
+                    _n( '%s jour', '%s jours', $days, 'loterie-manager' ),
+                    number_format_i18n( $days )
+                );
+            }
+
+            if ( $hours > 0 || $days > 0 ) {
+                $parts[] = sprintf(
+                    _n( '%s heure', '%s heures', $hours, 'loterie-manager' ),
+                    number_format_i18n( $hours )
+                );
+            }
+
+            $parts[] = sprintf(
+                _n( '%s minute', '%s minutes', $minutes, 'loterie-manager' ),
+                number_format_i18n( $minutes )
+            );
+
+            $separator = sanitize_text_field( $atts['separator'] );
+            if ( '' === $separator ) {
+                $separator = ' ';
+            }
+
+            $time_text = implode( $separator, $parts );
+
+            return '<span class="lm-loterie-remaining-time">' . esc_html( $time_text ) . '</span>';
         }
 
         /**
