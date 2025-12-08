@@ -3,7 +3,7 @@
 Plugin Name: WinShirt Loterie Manager
 Plugin URI: https://github.com/ShakassOne/loterie-winshirt
 Description: Gestion des loteries pour WooCommerce.
-Version: 1.3.21
+Version: 1.3.22
 Author: Shakass Communication
 Author URI: https://shakass.com
 Text Domain: loterie-winshirt
@@ -19,7 +19,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
 
     final class Loterie_Manager {
 
-        const VERSION = '1.3.21';
+        const VERSION = '1.3.22';
 
         /**
          * Meta key storing total ticket capacity for a loterie (post).
@@ -102,6 +102,11 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
         const META_VARIATION_TICKET_ALLOCATION = '_lm_variation_ticket_allocation';
 
         /**
+         * Meta key flagging an order as excluded from lottery counters.
+         */
+        const META_ORDER_EXCLUDE_FROM_LOTTERY = '_winshirt_exclude_from_lottery';
+
+        /**
          * Option key storing global lottery settings.
          */
         const OPTION_SETTINGS = 'lm_lottery_settings';
@@ -179,6 +184,9 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 add_action( 'admin_post_lm_manual_draw', array( $this, 'handle_manual_draw' ) );
                 add_action( 'admin_post_lm_download_draw_report', array( $this, 'handle_download_draw_report' ) );
                 add_action( 'admin_post_lm_reset_lottery_counters', array( $this, 'handle_reset_lottery_counters' ) );
+                add_action( 'admin_post_lm_remove_order_tickets', array( $this, 'handle_remove_order_tickets' ) );
+                add_action( 'add_meta_boxes_shop_order', array( $this, 'register_order_metabox' ) );
+                add_action( 'admin_notices', array( $this, 'render_order_ticket_notice' ) );
                 add_action( 'woocommerce_product_after_variable_attributes', array( $this, 'render_variation_ticket_field' ), 10, 3 );
                 add_action( 'woocommerce_save_product_variation', array( $this, 'save_variation_ticket_field' ), 10, 2 );
                 add_action( 'woocommerce_after_add_attribute_fields', array( $this, 'render_attribute_visibility_field_add' ) );
@@ -1521,6 +1529,10 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             $order = wc_get_order( $order_id );
 
             if ( ! $order ) {
+                return;
+            }
+
+            if ( $this->is_order_excluded_from_lottery( $order ) ) {
                 return;
             }
 
@@ -3467,7 +3479,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 'table_pagination'     => 25,
                 'visible_columns'      => array( 'ticket', 'participant', 'email', 'status', 'order', 'date', 'city', 'country', 'phone' ),
                 'eligibility_rules'    => array(
-                    'exclude_statuses' => array( 'cancelled', 'refunded', 'failed', 'pending' ),
+                    'exclude_statuses' => array( 'cancelled', 'refunded', 'failed', 'pending', 'draft' ),
                 ),
             );
         }
@@ -3567,6 +3579,29 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             }
 
             return array_values( array_unique( $sanitized ) );
+        }
+
+        /**
+         * Checks whether an order must be excluded from lottery counters.
+         *
+         * @param WC_Order $order Order instance.
+         *
+         * @return bool
+         */
+        private function is_order_excluded_from_lottery( $order ) {
+            if ( ! $order instanceof WC_Order ) {
+                return false;
+            }
+
+            $meta_excluded = $order->get_meta( self::META_ORDER_EXCLUDE_FROM_LOTTERY );
+            if ( 'yes' === $meta_excluded ) {
+                return true;
+            }
+
+            $excluded_statuses = $this->get_order_excluded_statuses();
+            $normalized        = sanitize_key( str_replace( 'wc-', '', (string) $order->get_status() ) );
+
+            return in_array( $normalized, $excluded_statuses, true );
         }
 
         /**
@@ -4077,6 +4112,10 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             $participants = array();
 
             foreach ( $orders as $order ) {
+                if ( $this->is_order_excluded_from_lottery( $order ) ) {
+                    continue;
+                }
+
                 foreach ( $order->get_items() as $item_id => $item ) {
                     $distribution = $this->get_item_ticket_distribution( $item );
                     if ( empty( $distribution ) ) {
@@ -5701,6 +5740,210 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
         }
 
         /**
+         * Registers the meta box displayed on WooCommerce order edit screens.
+         */
+        public function register_order_metabox() {
+            if ( ! current_user_can( 'manage_woocommerce' ) ) {
+                return;
+            }
+
+            add_meta_box(
+                'lm-order-lottery-actions',
+                __( 'Tickets de loterie', 'loterie-manager' ),
+                array( $this, 'render_order_metabox' ),
+                'shop_order',
+                'side',
+                'default'
+            );
+        }
+
+        /**
+         * Displays the lottery cleanup action on the order edit screen.
+         *
+         * @param WP_Post $post Current post.
+         */
+        public function render_order_metabox( $post ) {
+            if ( ! current_user_can( 'manage_woocommerce' ) ) {
+                return;
+            }
+
+            $order = wc_get_order( $post->ID );
+            if ( ! $order ) {
+                echo '<p>' . esc_html__( 'Commande introuvable.', 'loterie-manager' ) . '</p>';
+                return;
+            }
+
+            $already_excluded = 'yes' === $order->get_meta( self::META_ORDER_EXCLUDE_FROM_LOTTERY );
+
+            echo '<p>' . esc_html__( 'Supprime les tickets de loterie associés à cette commande sans toucher au paiement.', 'loterie-manager' ) . '</p>';
+
+            if ( $already_excluded ) {
+                echo '<p class="description">' . esc_html__( 'Cette commande est déjà exclue des compteurs de loterie.', 'loterie-manager' ) . '</p>';
+                return;
+            }
+
+            echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+            wp_nonce_field( 'lm_remove_order_tickets_' . $post->ID, 'lm_remove_order_tickets_nonce' );
+            echo '<input type="hidden" name="action" value="lm_remove_order_tickets" />';
+            echo '<input type="hidden" name="order_id" value="' . esc_attr( $post->ID ) . '" />';
+            echo '<p><button type="submit" class="button button-secondary" onclick="return confirm(\'' . esc_js__( 'Confirmer la suppression des tickets pour cette commande ?', 'loterie-manager' ) . '\');">' . esc_html__( 'Supprimer les tickets de loterie (commande test)', 'loterie-manager' ) . '</button></p>';
+            echo '<p class="description">' . esc_html__( 'La commande reste intacte et le paiement n’est pas modifié.', 'loterie-manager' ) . '</p>';
+            echo '</form>';
+        }
+
+        /**
+         * Handles the removal of lottery tickets for a specific order.
+         */
+        public function handle_remove_order_tickets() {
+            if ( ! current_user_can( 'manage_woocommerce' ) ) {
+                wp_die( esc_html__( 'Action non autorisée.', 'loterie-manager' ) );
+            }
+
+            $order_id = isset( $_POST['order_id'] ) ? absint( $_POST['order_id'] ) : 0;
+            $nonce    = isset( $_POST['lm_remove_order_tickets_nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['lm_remove_order_tickets_nonce'] ) ) : '';
+
+            if ( $order_id <= 0 || ! wp_verify_nonce( $nonce, 'lm_remove_order_tickets_' . $order_id ) ) {
+                wp_die( esc_html__( 'Jeton de sécurité invalide.', 'loterie-manager' ) );
+            }
+
+            $order = wc_get_order( $order_id );
+            if ( ! $order ) {
+                wp_die( esc_html__( 'Commande introuvable.', 'loterie-manager' ) );
+            }
+
+            $result = $this->winshirt_lottery_remove_tickets_for_order( $order_id );
+
+            $status = 'empty';
+            if ( ! empty( $result['removed'] ) ) {
+                $status = 'removed';
+            } elseif ( ! empty( $result['already_excluded'] ) ) {
+                $status = 'excluded';
+            }
+
+            $redirect = get_edit_post_link( $order_id, '' );
+            $redirect = $redirect ? $redirect : admin_url( 'edit.php?post_type=shop_order' );
+            $redirect = add_query_arg( 'lm_order_tickets', $status, $redirect );
+
+            wp_safe_redirect( $redirect );
+            exit;
+        }
+
+        /**
+         * Removes lottery tickets tied to an order and refreshes counters.
+         *
+         * @param int $order_id Order ID.
+         *
+         * @return array<string, mixed>
+         */
+        public function winshirt_lottery_remove_tickets_for_order( $order_id ) {
+            if ( ! function_exists( 'wc_get_order' ) ) {
+                return array(
+                    'removed'           => false,
+                    'already_excluded'  => false,
+                    'affected_loteries' => array(),
+                );
+            }
+
+            $order = wc_get_order( $order_id );
+            if ( ! $order ) {
+                return array(
+                    'removed'           => false,
+                    'already_excluded'  => false,
+                    'affected_loteries' => array(),
+                );
+            }
+
+            $already_excluded = 'yes' === $order->get_meta( self::META_ORDER_EXCLUDE_FROM_LOTTERY );
+            $affected         = array();
+
+            foreach ( $order->get_items() as $item ) {
+                $distribution = $this->get_item_ticket_distribution( $item );
+                if ( empty( $distribution ) ) {
+                    continue;
+                }
+
+                foreach ( $distribution as $loterie_id ) {
+                    $loterie_id = intval( $loterie_id );
+                    if ( $loterie_id <= 0 ) {
+                        continue;
+                    }
+
+                    if ( ! isset( $affected[ $loterie_id ] ) ) {
+                        $affected[ $loterie_id ] = 0;
+                    }
+
+                    $affected[ $loterie_id ]++;
+                }
+
+                $this->set_item_ticket_distribution( $item, array() );
+                $item->update_meta_data( 'lm_lottery_selection', array() );
+                $item->save();
+            }
+
+            $order->update_meta_data( self::META_ORDER_EXCLUDE_FROM_LOTTERY, 'yes' );
+            $order->save();
+
+            if ( ! empty( $affected ) ) {
+                $this->refresh_loterie_counters( array_keys( $affected ) );
+
+                foreach ( $affected as $loterie_id => $count ) {
+                    $this->add_lottery_log(
+                        $loterie_id,
+                        'tickets_invalidated',
+                        sprintf(
+                            __( '%1$d ticket(s) supprimé(s) après exclusion de la commande #%2$s.', 'loterie-manager' ),
+                            $count,
+                            $order->get_order_number()
+                        )
+                    );
+                }
+            }
+
+            return array(
+                'removed'           => ! empty( $affected ),
+                'already_excluded'  => $already_excluded,
+                'affected_loteries' => array_keys( $affected ),
+            );
+        }
+
+        /**
+         * Displays an admin notice after ticket removal.
+         */
+        public function render_order_ticket_notice() {
+            if ( ! current_user_can( 'manage_woocommerce' ) ) {
+                return;
+            }
+
+            if ( empty( $_GET['lm_order_tickets'] ) ) {
+                return;
+            }
+
+            $screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+            if ( $screen && false === strpos( $screen->id, 'shop_order' ) ) {
+                return;
+            }
+
+            $status  = sanitize_key( wp_unslash( $_GET['lm_order_tickets'] ) );
+            $message = '';
+            $class   = 'updated';
+
+            if ( 'removed' === $status ) {
+                $message = __( 'Tickets de loterie supprimés pour cette commande (marquée comme commande test).', 'loterie-manager' );
+                $class   = 'notice-success';
+            } elseif ( 'excluded' === $status ) {
+                $message = __( 'Cette commande était déjà exclue des compteurs de loterie.', 'loterie-manager' );
+                $class   = 'notice-info';
+            } else {
+                $message = __( 'Aucun ticket à supprimer pour cette commande.', 'loterie-manager' );
+                $class   = 'notice-warning';
+            }
+
+            if ( '' !== $message ) {
+                echo '<div class="notice ' . esc_attr( $class ) . ' is-dismissible"><p>' . esc_html( $message ) . '</p></div>';
+            }
+        }
+
+        /**
          * Processes manual draw requests.
          */
         public function handle_manual_draw() {
@@ -5986,6 +6229,10 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 return;
             }
 
+            if ( $this->is_order_excluded_from_lottery( $order ) ) {
+                return;
+            }
+
             $loterie_counts = array();
 
             foreach ( $order->get_items() as $item ) {
@@ -6081,6 +6328,10 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             $draw_context_cache     = array();
 
             foreach ( $orders as $order ) {
+                if ( $this->is_order_excluded_from_lottery( $order ) ) {
+                    continue;
+                }
+
                 $order_id    = $order->get_id();
                 $order_date  = $order->get_date_created() ? $order->get_date_created()->getTimestamp() : 0;
                 $order_state = $order->get_status();
