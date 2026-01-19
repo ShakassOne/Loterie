@@ -3,7 +3,7 @@
 Plugin Name: WinShirt Loterie Manager
 Plugin URI: https://github.com/ShakassOne/loterie-winshirt
 Description: Gestion des loteries pour WooCommerce.
-Version: 1.3.22
+Version: 1.3.23
 Author: Shakass Communication
 Author URI: https://shakass.com
 Text Domain: loterie-winshirt
@@ -19,7 +19,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
 
     final class Loterie_Manager {
 
-        const VERSION = '1.3.22';
+        const VERSION = '1.3.23';
 
         /**
          * Meta key storing total ticket capacity for a loterie (post).
@@ -214,6 +214,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             add_filter( 'woocommerce_order_item_display_meta_value', array( $this, 'filter_order_item_meta_value' ), 10, 3 );
             add_filter( 'woocommerce_hidden_order_itemmeta', array( $this, 'hide_order_item_meta' ) );
             add_action( 'woocommerce_email_after_order_table', array( $this, 'render_email_loterie_thumbnails' ), 15, 4 );
+            add_filter( 'woocommerce_locate_template', array( $this, 'locate_email_template' ), 10, 3 );
             add_action( 'woocommerce_order_status_completed', array( $this, 'sync_order_ticket_counts' ) );
             add_action( 'woocommerce_order_status_processing', array( $this, 'sync_order_ticket_counts' ) );
             add_action( 'woocommerce_order_status_changed', array( $this, 'handle_order_status_change' ), 10, 4 );
@@ -1423,6 +1424,53 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             }
 
             echo '</table></div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+        }
+
+        /**
+         * Overrides the processing order email template with the plugin version.
+         *
+         * @param string $template      Located template path.
+         * @param string $template_name Template name.
+         * @param string $template_path Template path.
+         * @return string
+         */
+        public function locate_email_template( $template, $template_name, $template_path ) {
+            if ( 'emails/customer-processing-order.php' !== $template_name && 'emails/plain/customer-processing-order.php' !== $template_name ) {
+                return $template;
+            }
+
+            $plugin_template = plugin_dir_path( __FILE__ ) . 'templates/' . $template_name;
+            if ( file_exists( $plugin_template ) ) {
+                return $plugin_template;
+            }
+
+            return $template;
+        }
+
+        /**
+         * Returns a list of selected lottery titles for a given order.
+         *
+         * @param WC_Order $order Order instance.
+         * @return string[]
+         */
+        public function get_order_loterie_titles_for_email( $order ) {
+            if ( ! $order || ! is_a( $order, 'WC_Order' ) ) {
+                return array();
+            }
+
+            $details = $this->get_order_loterie_details( $order );
+            if ( empty( $details ) ) {
+                return array();
+            }
+
+            $titles = array();
+            foreach ( $details as $detail ) {
+                if ( ! empty( $detail['title'] ) ) {
+                    $titles[] = $detail['title'];
+                }
+            }
+
+            return $titles;
         }
 
         /**
