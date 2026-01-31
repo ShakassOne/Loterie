@@ -3,7 +3,7 @@
 Plugin Name: WinShirt Loterie Manager
 Plugin URI: https://github.com/ShakassOne/loterie-winshirt
 Description: Gestion des loteries pour WooCommerce.
-Version: 1.3.23
+Version: 1.3.24
 Author: Shakass Communication
 Author URI: https://shakass.com
 Text Domain: loterie-winshirt
@@ -19,7 +19,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
 
     final class Loterie_Manager {
 
-        const VERSION = '1.3.23';
+        const VERSION = '1.3.24';
 
         /**
          * Meta key storing total ticket capacity for a loterie (post).
@@ -323,11 +323,12 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 );
             }
 
-            $status   = isset( $_POST['status'] ) ? sanitize_key( wp_unslash( $_POST['status'] ) ) : '';
-            $category = isset( $_POST['category'] ) ? absint( $_POST['category'] ) : 0;
-            $search   = isset( $_POST['search'] ) ? sanitize_text_field( wp_unslash( $_POST['search'] ) ) : '';
-            $sort     = isset( $_POST['sort'] ) ? sanitize_key( wp_unslash( $_POST['sort'] ) ) : '';
-            $layout   = isset( $_POST['layout'] ) ? sanitize_key( wp_unslash( $_POST['layout'] ) ) : '';
+            $status        = isset( $_POST['status'] ) ? sanitize_key( wp_unslash( $_POST['status'] ) ) : '';
+            $category      = isset( $_POST['category'] ) ? absint( $_POST['category'] ) : 0;
+            $search        = isset( $_POST['search'] ) ? sanitize_text_field( wp_unslash( $_POST['search'] ) ) : '';
+            $sort          = isset( $_POST['sort'] ) ? sanitize_key( wp_unslash( $_POST['sort'] ) ) : '';
+            $layout        = isset( $_POST['layout'] ) ? sanitize_key( wp_unslash( $_POST['layout'] ) ) : '';
+            $upcoming_date = isset( $_POST['upcoming_date'] ) ? sanitize_key( wp_unslash( $_POST['upcoming_date'] ) ) : '';
             $columns  = isset( $_POST['columns'] ) ? absint( $_POST['columns'] ) : 0;
             $columns_tablet = isset( $_POST['columns_tablet'] ) ? absint( $_POST['columns_tablet'] ) : 0;
             $columns_mobile = isset( $_POST['columns_mobile'] ) ? absint( $_POST['columns_mobile'] ) : 0;
@@ -349,6 +350,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             $html = $this->get_filtered_lotteries_html(
                 array(
                     'status'         => $status,
+                    'upcoming_date'  => $upcoming_date,
                     'category'       => $category,
                     'search'         => $search,
                     'sort'           => $sort,
@@ -2362,8 +2364,10 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
         public function render_loterie_shortcode( $atts ) {
             $atts = shortcode_atts(
                 array(
-                    'id'   => '',
-                    'sort' => 'date_desc',
+                    'id'            => '',
+                    'sort'          => 'date_desc',
+                    'status'        => '',
+                    'upcoming_date' => '',
                 ),
                 $atts,
                 'lm_loterie'
@@ -2392,9 +2396,11 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
 
             wp_enqueue_script( 'loterie-manager-lottery-filters' );
 
-            $sort_key     = $this->normalize_loterie_sort_key( $atts['sort'] );
-            $sort_options = $this->get_loterie_sort_options();
-            $categories   = get_categories(
+            $sort_key      = $this->normalize_loterie_sort_key( $atts['sort'] );
+            $status_filter = $this->normalize_loterie_status_filter( $atts['status'] );
+            $upcoming_date = $this->normalize_loterie_upcoming_date_filter( $atts['upcoming_date'] );
+            $sort_options  = $this->get_loterie_sort_options();
+            $categories    = get_categories(
                 array(
                     'hide_empty' => true,
                 )
@@ -2408,23 +2414,25 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
 
             $initial_html = $this->get_filtered_lotteries_html(
                 array(
-                    'sort' => $sort_key,
+                    'sort'          => $sort_key,
+                    'status'        => $status_filter,
+                    'upcoming_date' => $upcoming_date,
                 )
             );
 
             ob_start();
             ?>
-            <div class="lm-lottery-list" data-default-sort="<?php echo esc_attr( $sort_key ); ?>">
+            <div class="lm-lottery-list" data-default-sort="<?php echo esc_attr( $sort_key ); ?>" data-upcoming-date="<?php echo esc_attr( $upcoming_date ); ?>">
                 <form class="lm-lottery-filters" action="#" method="post" novalidate>
                     <div class="lm-lottery-filters__field lm-lottery-filters__field--status">
                         <label for="<?php echo esc_attr( $status_field ); ?>"><?php esc_html_e( 'Statut des loteries', 'loterie-manager' ); ?></label>
                         <select id="<?php echo esc_attr( $status_field ); ?>" name="status">
-                            <option value="" selected="selected"><?php esc_html_e( 'Tous les statuts', 'loterie-manager' ); ?></option>
-                            <option value="active"><?php esc_html_e( 'En cours', 'loterie-manager' ); ?></option>
-                            <option value="upcoming"><?php esc_html_e( 'À venir', 'loterie-manager' ); ?></option>
-                            <option value="cancelled"><?php esc_html_e( 'Annulées', 'loterie-manager' ); ?></option>
-                            <option value="suspended"><?php esc_html_e( 'Suspendues', 'loterie-manager' ); ?></option>
-                            <option value="ended"><?php esc_html_e( 'Terminées', 'loterie-manager' ); ?></option>
+                            <option value=""<?php selected( $status_filter, '' ); ?>><?php esc_html_e( 'Tous les statuts', 'loterie-manager' ); ?></option>
+                            <option value="active"<?php selected( $status_filter, 'active' ); ?>><?php esc_html_e( 'En cours', 'loterie-manager' ); ?></option>
+                            <option value="upcoming"<?php selected( $status_filter, 'upcoming' ); ?>><?php esc_html_e( 'À venir', 'loterie-manager' ); ?></option>
+                            <option value="cancelled"<?php selected( $status_filter, 'cancelled' ); ?>><?php esc_html_e( 'Annulées', 'loterie-manager' ); ?></option>
+                            <option value="suspended"<?php selected( $status_filter, 'suspended' ); ?>><?php esc_html_e( 'Suspendues', 'loterie-manager' ); ?></option>
+                            <option value="ended"<?php selected( $status_filter, 'ended' ); ?>><?php esc_html_e( 'Terminées', 'loterie-manager' ); ?></option>
                         </select>
                     </div>
 
@@ -2529,6 +2537,20 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
         }
 
         /**
+         * Normalizes the upcoming date filter.
+         *
+         * @param string $value Requested upcoming date filter.
+         *
+         * @return string
+         */
+        private function normalize_loterie_upcoming_date_filter( $value ) {
+            $value   = sanitize_key( (string) $value );
+            $allowed = array( 'with_date', 'without_date' );
+
+            return in_array( $value, $allowed, true ) ? $value : '';
+        }
+
+        /**
          * Generates the filtered loterie list markup.
          *
          * @param array<string, mixed> $args Filter arguments.
@@ -2538,6 +2560,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
         private function get_filtered_lotteries_html( $args = array() ) {
             $defaults = array(
                 'status'         => '',
+                'upcoming_date'  => '',
                 'category'       => 0,
                 'search'         => '',
                 'sort'           => 'date_desc',
@@ -2553,6 +2576,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             $args = wp_parse_args( $args, $defaults );
 
             $status        = $this->normalize_loterie_status_filter( $args['status'] );
+            $upcoming_date = $this->normalize_loterie_upcoming_date_filter( $args['upcoming_date'] );
             $category      = absint( $args['category'] );
             $search        = sanitize_text_field( (string) $args['search'] );
             $sort_key      = $this->normalize_loterie_sort_key( $args['sort'] );
@@ -2629,6 +2653,21 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
 
                     if ( '' !== $status && $status !== $display_code ) {
                         continue;
+                    }
+
+                    if ( '' !== $upcoming_date ) {
+                        if ( 'upcoming' !== $display_code ) {
+                            continue;
+                        }
+
+                        $has_start_date = ! empty( $context['start_date'] );
+                        if ( 'with_date' === $upcoming_date && ! $has_start_date ) {
+                            continue;
+                        }
+
+                        if ( 'without_date' === $upcoming_date && $has_start_date ) {
+                            continue;
+                        }
                     }
 
                     $card_html = $this->render_loterie_card( $context );
@@ -2753,6 +2792,8 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                     'ids'            => '',
                     'exclude'        => '',
                     'status'         => 'publish',
+                    'loterie_status' => '',
+                    'upcoming_date'  => '',
                     'empty_message'  => __( 'Aucune loterie disponible pour le moment.', 'loterie-manager' ),
                     'columns'        => '',
                     'columns_tablet' => '',
@@ -2777,6 +2818,9 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             if ( empty( $statuses ) ) {
                 $statuses = array( 'publish' );
             }
+
+            $status_filter = $this->normalize_loterie_status_filter( $atts['loterie_status'] );
+            $upcoming_date = $this->normalize_loterie_upcoming_date_filter( $atts['upcoming_date'] );
 
             $ids = array_filter( array_map( 'absint', preg_split( '/[\s,]+/', (string) $atts['ids'] ) ) );
             $exclude = array_filter( array_map( 'absint', preg_split( '/[\s,]+/', (string) $atts['exclude'] ) ) );
@@ -2846,6 +2890,8 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                     'columns_mobile' => $columns_mobile,
                     'empty_message'  => $atts['empty_message'],
                     'manual_order'   => $manual_order,
+                    'status'         => $status_filter,
+                    'upcoming_date'  => $upcoming_date,
                     'query_args'     => $query_overrides,
                 )
             );
@@ -2859,6 +2905,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 'data-columns-mobile'=> $columns_mobile,
                 'data-empty-message' => $atts['empty_message'],
                 'data-manual-order'  => $manual_order ? '1' : '',
+                'data-upcoming-date' => $upcoming_date,
             );
 
             $query_args_json = wp_json_encode( $query_overrides );
@@ -2894,12 +2941,12 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                     <div class="lm-lottery-filters__field lm-lottery-filters__field--status">
                         <label for="<?php echo esc_attr( $status_field ); ?>"><?php esc_html_e( 'Statut des loteries', 'loterie-manager' ); ?></label>
                         <select id="<?php echo esc_attr( $status_field ); ?>" name="status">
-                            <option value="" selected="selected"><?php esc_html_e( 'Tous les statuts', 'loterie-manager' ); ?></option>
-                            <option value="active"><?php esc_html_e( 'En cours', 'loterie-manager' ); ?></option>
-                            <option value="upcoming"><?php esc_html_e( 'À venir', 'loterie-manager' ); ?></option>
-                            <option value="cancelled"><?php esc_html_e( 'Annulées', 'loterie-manager' ); ?></option>
-                            <option value="suspended"><?php esc_html_e( 'Suspendues', 'loterie-manager' ); ?></option>
-                            <option value="ended"><?php esc_html_e( 'Terminées', 'loterie-manager' ); ?></option>
+                            <option value=""<?php selected( $status_filter, '' ); ?>><?php esc_html_e( 'Tous les statuts', 'loterie-manager' ); ?></option>
+                            <option value="active"<?php selected( $status_filter, 'active' ); ?>><?php esc_html_e( 'En cours', 'loterie-manager' ); ?></option>
+                            <option value="upcoming"<?php selected( $status_filter, 'upcoming' ); ?>><?php esc_html_e( 'À venir', 'loterie-manager' ); ?></option>
+                            <option value="cancelled"<?php selected( $status_filter, 'cancelled' ); ?>><?php esc_html_e( 'Annulées', 'loterie-manager' ); ?></option>
+                            <option value="suspended"<?php selected( $status_filter, 'suspended' ); ?>><?php esc_html_e( 'Suspendues', 'loterie-manager' ); ?></option>
+                            <option value="ended"<?php selected( $status_filter, 'ended' ); ?>><?php esc_html_e( 'Terminées', 'loterie-manager' ); ?></option>
                         </select>
                     </div>
 
