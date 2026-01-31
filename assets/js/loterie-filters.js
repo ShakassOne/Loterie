@@ -72,6 +72,11 @@
             data.empty_message = emptyMessage;
         }
 
+        var upcomingDate = $wrapper.data('upcomingDate');
+        if (typeof upcomingDate !== 'undefined') {
+            data.upcoming_date = String(upcomingDate);
+        }
+
         var queryArgsAttr = $wrapper.attr('data-query-args');
         if (queryArgsAttr) {
             data.query_args = queryArgsAttr;
