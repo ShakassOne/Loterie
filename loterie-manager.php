@@ -3,7 +3,7 @@
 Plugin Name: WinShirt Loterie Manager
 Plugin URI: https://github.com/ShakassOne/loterie-winshirt
 Description: Gestion des loteries pour WooCommerce.
-Version: 1.3.24
+Version: 1.3.25
 Author: Shakass Communication
 Author URI: https://shakass.com
 Text Domain: loterie-winshirt
@@ -19,7 +19,7 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
 
     final class Loterie_Manager {
 
-        const VERSION = '1.3.24';
+        const VERSION = '1.3.25';
 
         /**
          * Meta key storing total ticket capacity for a loterie (post).
@@ -1165,6 +1165,13 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
                 return $item_data;
             }
 
+            $ticket_allocation = isset( $cart_item['lm_ticket_allocation'] ) ? intval( $cart_item['lm_ticket_allocation'] ) : 0;
+            if ( $ticket_allocation <= 0 ) {
+                $product_id   = isset( $cart_item['product_id'] ) ? intval( $cart_item['product_id'] ) : 0;
+                $variation_id = isset( $cart_item['variation_id'] ) ? intval( $cart_item['variation_id'] ) : 0;
+                $ticket_allocation = $this->get_ticket_allocation_limit( $product_id, $variation_id );
+            }
+
             $names = array();
             foreach ( $cart_item['lm_lottery_selection'] as $loterie_id ) {
                 $post = get_post( $loterie_id );
@@ -1174,6 +1181,19 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             }
 
             if ( ! empty( $names ) ) {
+                if ( $ticket_allocation > 0 ) {
+                    $quantity      = isset( $cart_item['quantity'] ) ? intval( $cart_item['quantity'] ) : 1;
+                    $tickets_total = max( 1, $ticket_allocation * max( 1, $quantity ) );
+
+                    $item_data[] = array(
+                        'name'  => __( 'Tickets', 'loterie-manager' ),
+                        'value' => sprintf(
+                            _n( '%d ticket', '%d tickets', $tickets_total, 'loterie-manager' ),
+                            $tickets_total
+                        ),
+                    );
+                }
+
                 $item_data[] = array(
                     'name'  => __( 'Loteries', 'loterie-manager' ),
                     'value' => implode( ', ', array_map( 'esc_html', $names ) ),
@@ -1473,6 +1493,32 @@ if ( ! class_exists( 'Loterie_Manager' ) ) {
             }
 
             return $titles;
+        }
+
+        /**
+         * Returns the total number of tickets for a given order.
+         *
+         * @param WC_Order $order Order instance.
+         * @return int
+         */
+        public function get_order_ticket_total_for_email( $order ) {
+            if ( ! $order || ! is_a( $order, 'WC_Order' ) ) {
+                return 0;
+            }
+
+            $total = 0;
+
+            foreach ( $order->get_items() as $item ) {
+                $distribution = $this->get_item_ticket_distribution( $item );
+
+                if ( empty( $distribution ) ) {
+                    continue;
+                }
+
+                $total += count( $distribution );
+            }
+
+            return $total;
         }
 
         /**
