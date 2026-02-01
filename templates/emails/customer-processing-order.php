@@ -20,22 +20,33 @@ echo '<p>' . esc_html( $greeting ) . '</p>';
 echo '<p>' . esc_html__( 'Nous avons bien reçu ta commande, elle est maintenant en cours de traitement.', 'loterie-manager' ) . '</p>';
 
 $loterie_names = array();
+$ticket_total  = 0;
 
 if ( class_exists( 'Loterie_Manager' ) ) {
     $loterie_names = Loterie_Manager::instance()->get_order_loterie_titles_for_email( $order );
+    $ticket_total  = Loterie_Manager::instance()->get_order_ticket_total_for_email( $order );
 }
 
 if ( ! empty( $loterie_names ) ) {
     $names_text = implode( ', ', $loterie_names );
+    $tickets_text = '';
+    if ( $ticket_total > 0 ) {
+        $tickets_text = ' ' . sprintf(
+            _n( 'avec %d ticket', 'avec %d tickets', $ticket_total, 'loterie-manager' ),
+            $ticket_total
+        );
+    }
     if ( count( $loterie_names ) > 1 ) {
         $sentence = sprintf(
-            __( 'Tu es officiellement inscrit pour les concours suivants : %s.', 'loterie-manager' ),
-            $names_text
+            __( 'Tu es officiellement inscrit pour les concours suivants : %1$s%2$s.', 'loterie-manager' ),
+            $names_text,
+            $tickets_text
         );
     } else {
         $sentence = sprintf(
-            __( 'Tu es officiellement inscrit pour le concours « %s ».', 'loterie-manager' ),
-            $names_text
+            __( 'Tu es officiellement inscrit pour le concours « %1$s »%2$s.', 'loterie-manager' ),
+            $names_text,
+            $tickets_text
         );
     }
 
