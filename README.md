@@ -73,6 +73,8 @@ Lorsque les critères sont remplis (tickets valides disponibles et loterie prêt
 
 ## Historique des versions
 
+- **1.3.27** : utilisation des visuels complets (non rognés) dans l’e-mail de confirmation.
+- **1.3.26** : agrandissement des visuels de loterie dans l’e-mail de confirmation pour occuper la largeur disponible.
 - **1.3.25** : affichage du nombre de tickets par produit dans le panier/checkout et ajout du total de tickets dans l’e-mail de confirmation.
 - **1.3.24** : ajout des filtres `status`/`upcoming_date` pour cibler les loteries à venir avec/sans date et retrait du CSS frontend des shortcodes.
 - **1.3.23** : personnalisation du texte d’introduction de l’e-mail de confirmation de commande WooCommerce pour un ton plus chaleureux et rappel des loteries sélectionnées.
